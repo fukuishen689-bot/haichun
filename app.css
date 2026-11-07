@@ -197,3 +197,117 @@ details .inner{display:grid;gap:10px}
 .row .t small{font-weight:400;color:var(--mute);margin-left:6px;font-size:12px}
 .expform{margin-top:10px;display:grid;gap:10px}
 .expform .actions{margin-top:0}
+
+/* ================= 美化 v1：安静、温和、纸感 ================= */
+:root{
+ --bg:#f3f0e9;--panel:#fbfaf6;--ink:#232a29;--mute:#727a76;--line:#e3ddd2;--soft:#ebe7de;
+ --accent:#2e5b53;--accent-ink:#fbfaf6;--accent-soft:#e3ebe6;--occ:#46766b;--occ-ink:#fbfaf6;
+ --sand:#a07c4a;--sand-soft:#f3ebdd;--ok:#3f7552;--ok-soft:#e4eee5;--warn:#97602b;--warn-soft:#f5ebdc;
+ --r:14px;--shadow:0 1px 2px rgba(60,50,30,.05),0 4px 14px rgba(60,50,30,.04);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+ --bg:#151a19;--panel:#1c2321;--ink:#e7ebe8;--mute:#98a39f;--line:#2b3533;--soft:#232c2a;--shadow:none}}
+:root[data-theme="dark"]{--bg:#151a19;--panel:#1c2321;--ink:#e7ebe8;--mute:#98a39f;--line:#2b3533;--soft:#232c2a;--shadow:none}
+body{letter-spacing:.01em}
+button{border-radius:10px}
+button.pri{box-shadow:0 1px 0 rgba(0,0,0,.04)}
+input,select,textarea{background:var(--panel);border-color:var(--line);border-radius:10px;padding:10px 12px}
+input:focus,select:focus,textarea:focus{border-color:var(--accent);outline:none;box-shadow:0 0 0 3px var(--accent-soft)}
+
+/* 顶栏 */
+.top{background:color-mix(in srgb,var(--bg) 86%,transparent);-webkit-backdrop-filter:saturate(1.2) blur(14px);backdrop-filter:saturate(1.2) blur(14px);border-bottom-color:transparent;box-shadow:0 1px 0 var(--line)}
+.top-in{padding-block:12px 4px}
+.brand b{font-size:21px;letter-spacing:.14em}
+.brand span{font-size:12px;letter-spacing:.08em}
+#newBtn{border-radius:999px;padding:7px 16px;font-size:14px}
+.chip{background:transparent;border:1px solid var(--line);color:var(--mute)}
+.tabs{gap:6px}
+.tabs button{padding:8px 4px 10px;margin-right:10px;font-size:14px;letter-spacing:.04em}
+.tabs button[aria-current="page"]{font-weight:600;border-bottom-width:2px}
+
+/* 标题与分区 */
+h2{font-size:22px;letter-spacing:.04em}
+.sec{margin-top:28px}
+.sec-h{margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--line)}
+.sec-h h3{font-family:var(--serif);font-size:16px;letter-spacing:.06em}
+
+/* 卡片统一 */
+.card,.row,.ticket,.kpi,.rm,.empty,.cal-wrap{border:none;box-shadow:var(--shadow);border-radius:var(--r)}
+@media (prefers-color-scheme:dark){.card,.row,.ticket,.kpi,.rm,.empty,.cal-wrap{border:1px solid var(--line)}}
+.row{padding:13px 16px}
+.row:hover{border-color:transparent}
+.empty{background:transparent;box-shadow:none;border:1px dashed var(--line);font-size:14px}
+
+/* 今日 hero */
+.hero{gap:12px;padding:4px 0 2px}
+.hero-date b{font-size:30px;letter-spacing:.04em;line-height:1.15}
+.hero-date span{letter-spacing:.08em}
+.hero-sum{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.hero-sum span{background:var(--panel);box-shadow:var(--shadow);border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:0;font-size:12px}
+.hero-sum b{font-family:var(--serif);font-size:22px;font-weight:600;margin:0;line-height:1.2}
+.daynav button.sm{border-radius:999px;padding:6px 12px}
+.daynav input{border-radius:999px;padding:6px 14px;font-size:15px}
+
+/* 客人卡片 */
+.ticket{position:relative;overflow:hidden}
+.ticket::before{content:"";position:absolute;left:0;top:14px;bottom:14px;width:3px;border-radius:0 3px 3px 0;background:var(--accent)}
+.ticket.t-out::before{background:var(--sand)}
+.ticket.done::before{background:var(--ok)}
+.ticket.done{opacity:1}
+.ticket.done .tname,.ticket.done .route{color:var(--mute)}
+.tmain{padding:14px 16px 14px 18px;gap:8px}
+.tname{font-family:var(--serif);font-size:18px;letter-spacing:.04em}
+.plate{font-family:var(--serif);font-size:14px;color:var(--accent);background:var(--accent-soft);border-radius:6px;padding:0 8px}
+.route{font-size:14px;color:var(--ink)}
+.route b{font-size:15px}
+.next{background:var(--sand-soft);color:var(--ink);border-radius:10px;padding:8px 12px}
+.next .link{color:var(--sand)}
+.tnote{border-radius:10px;padding:8px 12px;background:var(--warn-soft)}
+.arrive{border-radius:999px;border-color:var(--accent);color:var(--accent);padding:4px 14px}
+.arrived{padding:3px 12px}
+.owe{font-size:14px}
+
+/* 六间房 */
+.rooms6{gap:10px}
+.rm{padding:12px 14px;min-height:76px;display:grid;align-content:start;gap:2px}
+.rm b{font-size:17px;letter-spacing:.1em}
+.rm.occ{background:var(--accent);box-shadow:none}
+.rm.occ b,.rm.occ div{color:var(--accent-ink)}
+.rm.occ .nx{color:var(--sand-soft);opacity:.95}
+.rm:not(.occ) div{color:var(--mute)}
+
+/* 数字与图表 */
+.kpi{padding:14px}
+.kpi .v{font-size:27px}
+.bar i{background:var(--occ);border-radius:999px;height:8px}
+.bar .track{border-radius:999px}
+.bars{gap:10px}
+
+/* 花费 */
+.expform{background:var(--panel)}
+.row.exp .amt{font-family:var(--serif);font-size:18px}
+
+/* 弹窗 */
+dialog{border-radius:18px;background:var(--bg)}
+@media (max-width:640px){dialog{border-radius:20px 20px 0 0}
+ .dlg-h{position:relative;padding-top:20px}
+ .dlg-h::before{content:"";position:absolute;top:8px;left:50%;width:36px;height:4px;margin-left:-18px;border-radius:999px;background:var(--line)}}
+.dlg-h,.dlg-f{border-color:var(--line);background:var(--bg)}
+.dlg-h h3{font-size:19px;letter-spacing:.06em}
+.roomsel button{background:var(--panel);border-radius:10px;padding:8px 10px}
+.roomsel button[aria-pressed="true"]{box-shadow:0 0 0 1px var(--accent) inset}
+details{border-radius:12px;background:var(--panel);border-color:var(--line)}
+.calc{border-radius:10px}
+.toast{border-radius:999px;padding:10px 18px;box-shadow:0 6px 20px rgba(0,0,0,.18)}
+.note{letter-spacing:.02em}
+label{display:flex;flex-wrap:wrap;align-content:start;column-gap:2px;row-gap:6px}
+label>input,label>select,label>textarea{flex:1 1 100%}
+label.chk{flex-wrap:nowrap;column-gap:8px}
+label.chk>input{flex:0 0 auto}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .rm.occ{background:var(--accent-soft);box-shadow:0 0 0 1px var(--occ) inset}
+ :root:not([data-theme="light"]) .rm.occ b,:root:not([data-theme="light"]) .rm.occ div{color:var(--ink)}
+ :root:not([data-theme="light"]) .rm.occ .nx{color:var(--sand)}}
+.rm .gn{font-size:14px;font-weight:600}
+.rm .gs{font-size:12px;opacity:.85}
+.rm .gs{display:flex;flex-wrap:wrap;column-gap:6px}
+.rm .gs span,.rm .nx span{white-space:nowrap}
