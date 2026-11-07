@@ -197,8 +197,3 @@ details .inner{display:grid;gap:10px}
 .row .t small{font-weight:400;color:var(--mute);margin-left:6px;font-size:12px}
 .expform{margin-top:10px;display:grid;gap:10px}
 .expform .actions{margin-top:0}
-.eta{font-size:13px;color:var(--mute);margin-top:2px}
-.eta b{color:var(--ink);font-variant-numeric:tabular-nums}
-.eta .link{font-size:13px;padding:0 0 0 6px}
-.alert{margin:10px 0 4px;background:var(--warn-soft);color:var(--warn);border-radius:var(--r);padding:10px 12px;font-size:14px;display:grid;gap:4px}
-.alert b{font-weight:700}

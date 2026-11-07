@@ -10,7 +10,6 @@ const TICKETS=['待确认','未购票','已购票','有变动','停航/取消'];
 const GUEST_TYPES=['未记录','情侣/夫妻','亲子家庭','朋友同行','独自出行','其他'];
 const KEY='haichun.zkb.v2', OLD_KEY='haichun.bookings.v1', BKEY='haichun.zkb.lastBackup', EKEY='haichun.zkb.exp.v1';
 const EXP_CATS=['早餐食材','员工菜钱','员工餐费','维修五金','水','饮料','接待招待','客人代买','其他'];
-const FERRY_MIN=100, REMIND_MIN=10; // 东极航线约 1 小时 40 分；到港前 10 分钟提醒
 const EXP_PAY=['微信','支付宝','现金','其他'];
 const STATUS_CLS={'已预订':'p-booked','已入住':'p-in','已退房':'p-out','已取消':'p-cancel','待确认':'p-pending'};
 
@@ -97,32 +96,14 @@ function routeHTML(l,d){if(!l||l.date!==d||!(l.port||l.time||l.ship))return '';c
  const from=parts[0]||'出发港待补充', to=parts.length>1?parts.slice(1).join(' → '):'';
  const tk=l.ticket&&l.ticket!=='待确认'?` <span class="tk ${l.ticket==='已购票'?'ok':(l.ticket==='有变动'||l.ticket==='停航/取消')?'bad':''}">${esc(l.ticket)}</span>`:'';
  return `<div class="route">${esc(from)}${l.time?' <b>'+esc(l.time)+'</b> 出发':''}${to?' → '+esc(to):''}${l.ship?' · '+esc(l.ship):''}${tk}</div>`;}
-function hm2m(t){const m=/^(\d{1,2}):(\d{2})/.exec(t||'');return m?Number(m[1])*60+Number(m[2]):null;}
-function m2hm(n){n=((n%1440)+1440)%1440;return String(Math.floor(n/60)).padStart(2,'0')+':'+String(n%60).padStart(2,'0');}
-function etaOf(r){const l=r.arrival;if(!l||!l.time||(l.date&&l.date!==r.checkin))return null;const dep=hm2m(l.time);if(dep==null)return null;return {dep,eta:dep+FERRY_MIN,go:dep+FERRY_MIN-REMIND_MIN};}
-function waiting(r){return r.status==='已预订';}
-function icsFor(list){const pad=(n)=>String(n).padStart(2,'0');const st=new Date();const stamp=st.getUTCFullYear()+pad(st.getUTCMonth()+1)+pad(st.getUTCDate())+'T'+pad(st.getUTCHours())+pad(st.getUTCMinutes())+'00Z';
- const tx=(v)=>String(v||'').replace(/[\\;,]/g,(c)=>'\\'+c).replace(/\n/g,'\\n');
- const ev=list.map((r)=>{const e=etaOf(r);const d=new Date(r.checkin+'T00:00:00');d.setMinutes(e.eta);const dt=d.getFullYear()+pad(d.getMonth()+1)+pad(d.getDate())+'T'+pad(d.getHours())+pad(d.getMinutes())+'00';
-  return ['BEGIN:VEVENT','UID:zkb-'+r.id+'-'+r.arrival.time.replace(':','')+'@haichun','DTSTAMP:'+stamp,'DTSTART:'+dt,'DURATION:PT20M',
-  'SUMMARY:'+tx('接船 · '+r.name+' · '+r.room),'LOCATION:'+tx('庙子湖码头'),'DESCRIPTION:'+tx((r.arrival.port||'')+' '+r.arrival.time+' 出发，预计 '+m2hm(e.eta)+' 到港'+(r.phone?'，电话 '+r.phone:'')),
-  'BEGIN:VALARM','ACTION:DISPLAY','DESCRIPTION:'+tx('该去码头接 '+r.name),'TRIGGER:-PT'+REMIND_MIN+'M','END:VALARM','END:VEVENT'].join('\r\n');});
- return ['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//haichun//zkb//CN','CALSCALE:GREGORIAN',...ev,'END:VCALENDAR'].join('\r\n');}
-function addReminder(list){list=list.filter((r)=>etaOf(r));if(!list.length){toast('先填来程船班时间');return;}
- const blob=new Blob([icsFor(list)],{type:'text/calendar'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='接船提醒.ics';document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},5000);}
 function arrivedHTML(r,d){if(r.checkin!==d)return '';
  if(r.status==='已入住'||r.status==='已退房'){const t=r.arrivedAt?new Date(r.arrivedAt):null;const tt=t&&!isNaN(t)?' '+String(t.getHours()).padStart(2,'0')+':'+String(t.getMinutes()).padStart(2,'0'):'';
   return `<span class="arrived">✓ 已到店${tt}</span>${r.status==='已入住'?`<button type="button" class="link undo" data-unarrive="${esc(r.id)}">撤销</button>`:''}`;}
  return `<button type="button" class="sm arrive" data-arrive="${esc(r.id)}">到店</button>`;}
 function ticketHTML(r,kind,d){const l=kind==='in'?r.arrival:r.departure;const o=owe(r);
- const e=kind==='in'?etaOf(r):null;
- const route=(routeHTML(l,d)||`<div class="route muted">${kind==='in'?'来程船班未填':'返程船班未填'}</div>`)+(e?`<div class="eta">约 <b>${m2hm(e.eta)}</b> 到港 · ${m2hm(e.go)} 出发接船${waiting(r)?` <button type="button" class="link" data-remind="${esc(r.id)}">加日历提醒</button>`:''}</div>`:'');
+ const route=routeHTML(l,d)||`<div class="route muted">${kind==='in'?'来程船班未填':'返程船班未填'}</div>`;
  const money=kind==='out'?(o>0?`<div class="owe">待收 ${yuan(o)} 元</div>`:''):'';
  return `<article class="ticket${kind==='in'&&(r.status==='已入住'||r.status==='已退房')?' done':''}"><div class="tmain"><div class="thead"><button type="button" class="tname" data-open="${esc(r.id)}">${esc(r.name)}</button>${plate(r.room)}<span class="tmeta">${nightsOf(r)} 晚 · ${r.adults} 大${r.children?' '+r.children+' 小':''}${r.phone?' · '+esc(r.phone):''}</span>${kind==='in'?'<span class="tact">'+arrivedHTML(r,d)+'</span>':''}</div>${route}${noteHTML(r)}${tasksHTML(r)}${money}${nextHTML(r,d)}</div></article>`;}
-function pickupAlert(arr){const now=new Date(),n=now.getHours()*60+now.getMinutes();
- const due=arr.filter((r)=>{const e=etaOf(r);return e&&waiting(r)&&n>=e.go-20&&n<=e.eta+30;}).sort((a,b)=>etaOf(a).eta-etaOf(b).eta);
- if(!due.length)return '';
- return `<div class="alert">${due.map((r)=>{const e=etaOf(r);const left=e.eta-n;return `<div><b>${n>=e.go?'该去接船':'准备接船'}</b> · ${esc(r.name)}（${esc(r.room)}）${m2hm(e.eta)} 到港${left>0?'，还有 '+left+' 分钟':'，船应已到'}</div>`;}).join('')}</div>`;}
 function viewToday(){const d=dayView, act=live().filter((r)=>ACTIVE.includes(r.status));
  const arr=act.filter((r)=>r.checkin===d).sort((a,b)=>((a.arrival.date===d&&a.arrival.time)||'99').localeCompare((b.arrival.date===d&&b.arrival.time)||'99'));
  const dep=act.filter((r)=>r.checkout===d).sort((a,b)=>((a.departure.date===d&&a.departure.time)||'99').localeCompare((b.departure.date===d&&b.departure.time)||'99'));
@@ -134,8 +115,8 @@ function viewToday(){const d=dayView, act=live().filter((r)=>ACTIVE.includes(r.s
  const isToday=d===today(), dt=new Date(d+'T00:00:00');
  let h=`<section class="hero"><div class="hero-date"><b>${dt.getMonth()+1}月${dt.getDate()}日</b><span>${wd(d)} · 庙子湖${isToday?' · 今天':''}</span></div>
  <div class="hero-sum"><span><b>${arr.filter((r)=>r.status!=='已预订').length}/${arr.length}</b>已到店</span><span><b>${dep.length}</b>离店</span><span><b>${stay.length}</b>/6 在住</span></div>
- ${isToday?pickupAlert(arr):''}<div class="daynav"><button type="button" class="sm" data-day="-1" aria-label="前一天">‹ 前一天</button><input type="date" id="dayPick" value="${esc(d)}" aria-label="安排日期"><button type="button" class="sm" data-day="1" aria-label="后一天">后一天 ›</button>${isToday?'':'<button type="button" class="sm" data-day="0">今天</button>'}</div></section>`;
- h+=`<section class="sec"><div class="sec-h"><h3>当日到店</h3>${arr.some((r)=>waiting(r)&&etaOf(r))?'<button type="button" class="link" data-remind-all>全部加日历提醒</button>':'<span>按船班时间排</span>'}</div>${arr.length?'<div class="list">'+arr.map((r)=>ticketHTML(r,'in',d)).join('')+'</div>':'<div class="empty">这一天没有客人到店</div>'}</section>`;
+ <div class="daynav"><button type="button" class="sm" data-day="-1" aria-label="前一天">‹ 前一天</button><input type="date" id="dayPick" value="${esc(d)}" aria-label="安排日期"><button type="button" class="sm" data-day="1" aria-label="后一天">后一天 ›</button>${isToday?'':'<button type="button" class="sm" data-day="0">今天</button>'}</div></section>`;
+ h+=`<section class="sec"><div class="sec-h"><h3>当日到店</h3><span>按船班时间排</span></div>${arr.length?'<div class="list">'+arr.map((r)=>ticketHTML(r,'in',d)).join('')+'</div>':'<div class="empty">这一天没有客人到店</div>'}</section>`;
  if(dep.length)h+=`<section class="sec"><div class="sec-h"><h3>当日离店</h3><span>退房 9:30 前</span></div><div class="list">${dep.map((r)=>ticketHTML(r,'out',d)).join('')}</div></section>`;
  const inNotes=inHouse.filter((r)=>r.notes||(r.tasks||[]).some((t)=>!t.done)||nextOf(r));
  if(inNotes.length)h+=`<section class="sec"><div class="sec-h"><h3>在住客人 · 注意事项与换房</h3><span>${inNotes.length} 间</span></div><div class="list">${inNotes.map((r)=>`<article class="card mini"><div class="thead"><button type="button" class="tname" data-open="${esc(r.id)}">${esc(r.name)}</button>${plate(r.room)}<span class="tmeta">${md(r.checkout)}离店</span></div>${noteHTML(r)}${tasksHTML(r)}${nextHTML(r,d)}</article>`).join('')}</div></section>`;
@@ -247,8 +228,6 @@ function bindView(){const v=$('view');
  v.querySelectorAll('[data-done]').forEach((el)=>el.addEventListener('click',()=>{const r=all.find((x)=>x.id===el.dataset.done);if(!r)return;const t=r.tasks[Number(el.dataset.ti)];if(!t)return;t.done=true;r.updatedAt=new Date().toISOString();try{save(r);toast('事项已完成');}catch(e){toast(e.message);}render();}));
  const fq=$('fq');if(fq){fq.addEventListener('input',()=>{filt.q=fq.value;const pos=fq.selectionStart;render();const n=$('fq');n.focus();try{n.setSelectionRange(pos,pos);}catch(e){}});
   [['fs','status'],['fc','channel'],['fm','month']].forEach(([id,k])=>$(id).addEventListener('change',()=>{filt[k]=$(id).value;render();}));}
- v.querySelectorAll('[data-remind]').forEach((el)=>el.addEventListener('click',()=>{const r=all.find((x)=>x.id===el.dataset.remind);if(r)addReminder([r]);}));
- v.querySelectorAll('[data-remind-all]').forEach((el)=>el.addEventListener('click',()=>addReminder(live().filter((r)=>r.checkin===dayView&&waiting(r)))));
  v.querySelectorAll('[data-arrive]').forEach((el)=>el.addEventListener('click',()=>{const r=all.find((x)=>x.id===el.dataset.arrive);if(!r)return;r.status='已入住';r.arrivedAt=new Date().toISOString();if(r.pickup==='需接船'||r.pickup==='已安排')r.pickup='已接到';r.updatedAt=r.arrivedAt;try{save(r);toast(r.name+' 已到店');}catch(e){toast(e.message);}render();}));
  v.querySelectorAll('[data-unarrive]').forEach((el)=>el.addEventListener('click',()=>{const r=all.find((x)=>x.id===el.dataset.unarrive);if(!r)return;r.status='已预订';r.arrivedAt='';r.updatedAt=new Date().toISOString();try{save(r);toast('已撤销到店');}catch(e){toast(e.message);}render();}));
  const xf=$('expForm');if(xf)xf.addEventListener('submit',(e)=>{e.preventDefault();let amt;try{amt=moneyIn($('xAmt').value.trim());}catch(err){toast('金额要填非负数字');return;}
@@ -430,7 +409,6 @@ async function restore(e){const f=e.target.files&&e.target.files[0];e.target.val
 
 /* ---------- 启动 ---------- */
 all=load();exps=loadExp();
-setInterval(()=>{if(tab==='today'&&dayView===today()&&!$('editor').open&&!$('detail').open&&!(document.activeElement&&/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)))render();},60000);
 const h0=(location.hash||'').slice(1);if(['today','ledger','calendar','stats','backup'].includes(h0))tab=h0;
 setTab(tab);
 function updateChip(){const c=$('offlineChip');c.textContent=navigator.onLine?'本机保存':'离线使用中';c.className='chip'+(navigator.onLine?'':' warn');}
