@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>海春登记</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="海春登记">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#f2f4f3" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#121817" media="(prefers-color-scheme: dark)">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
+<link rel="manifest" href="manifest.json">
+<style>
+/* Layout: ledger page — summary strip on top, entry form left, booking list right; stacks on phone */
+:root{
+ --bg:#f2f4f3;--panel:#ffffff;--ink:#1f2b2a;--mute:#66736f;--line:#dbe1de;--soft:#e8edeb;
+ --accent:#3f6f6a;--accent-ink:#ffffff;--accent-soft:#e3eeec;
+ --ok:#3e7a4e;--ok-soft:#e5f0e7;--warn:#9a5d22;--warn-soft:#f6ecdf;--bad:#a33a2e;--bad-soft:#f7e6e3;
+ --serif:"Noto Serif SC","Songti SC",serif;
+ --sans:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+ --r:8px;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+ --bg:#121817;--panel:#1a2220;--ink:#e5ebe9;--mute:#94a19d;--line:#2c3734;--soft:#222c2a;
+ --accent:#86b5ad;--accent-ink:#0f1716;--accent-soft:#22332f;
+ --ok:#8cc49a;--ok-soft:#1f2f24;--warn:#e0a86b;--warn-soft:#33281c;--bad:#ec9184;--bad-soft:#3a2320;color-scheme:dark}}
+:root[data-theme="dark"]{
+ --bg:#121817;--panel:#1a2220;--ink:#e5ebe9;--mute:#94a19d;--line:#2c3734;--soft:#222c2a;
+ --accent:#86b5ad;--accent-ink:#0f1716;--accent-soft:#22332f;
+ --ok:#8cc49a;--ok-soft:#1f2f24;--warn:#e0a86b;--warn-soft:#33281c;--bad:#ec9184;--bad-soft:#3a2320;color-scheme:dark}
+*{-webkit-tap-highlight-color:transparent}html{-webkit-text-size-adjust:100%}body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.6}
+.wrap{max-width:1180px;margin:0 auto;padding-top:calc(16px + env(safe-area-inset-top,0px));padding-bottom:calc(48px + env(safe-area-inset-bottom,0px));padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+h1{font-family:var(--serif);font-weight:500;font-size:26px;margin:0;letter-spacing:.02em;text-wrap:balance}
+.sub{color:var(--mute);margin:4px 0 20px}
+.strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;margin-bottom:20px}
+.strip div{background:var(--panel);padding:12px 14px}
+.strip .l{font-size:12px;color:var(--mute)}
+.strip .v{font-family:var(--serif);font-size:22px;font-variant-numeric:tabular-nums;line-height:1.3}
+.strip .v small{font-family:var(--sans);font-size:12px;color:var(--mute);margin-left:2px}
+.strip .owe .v{color:var(--warn)}
+.cols{display:grid;grid-template-columns:minmax(0,380px) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:860px){.cols{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:18px}
+.panel h2{font-size:15px;font-weight:600;margin:0 0 12px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+form{display:grid;gap:12px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+label{display:grid;gap:4px;font-size:12px;color:var(--mute)}
+label b{color:var(--bad);font-weight:400}
+input,select,textarea{font-size:16px;font-family:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:7px 9px;width:100%;box-sizing:border-box;min-width:0}
+textarea{resize:vertical;min-height:54px}
+input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.rooms{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.room{border:1px solid var(--line);border-radius:6px;padding:6px 8px;background:var(--bg);cursor:pointer;text-align:left;font:inherit;color:var(--ink)}
+.room span{display:block;font-size:11px;color:var(--mute);line-height:1.3}
+.room[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft)}
+.room.taken{border-color:var(--bad);background:var(--bad-soft)}
+.room.taken span{color:var(--bad)}
+.calc{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:12px;color:var(--mute);background:var(--soft);border-radius:6px;padding:8px 10px;font-variant-numeric:tabular-nums}
+.calc b{color:var(--ink);font-weight:600}
+.err{font-size:12px;color:var(--bad);min-height:0}
+.btns{display:flex;gap:8px;flex-wrap:wrap}
+button{font:inherit;cursor:pointer;border-radius:6px;padding:8px 14px;border:1px solid var(--line);background:var(--panel);color:var(--ink)}
+button.pri{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+button.sm{padding:4px 10px;font-size:12px}
+button.danger{color:var(--bad);border-color:var(--bad)}
+button:disabled{opacity:.5;cursor:default}
+.chk{display:flex;align-items:center;gap:6px;color:var(--ink);font-size:13px}
+.chk input{width:auto}
+.filters{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.filters select,.filters input{width:auto;flex:0 1 auto}
+.filters input{flex:1 1 140px}
+.list{display:grid;gap:8px}
+.bk{border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;display:grid;gap:6px;background:var(--panel)}
+.bk.cancelled{opacity:.6}
+.bk-top{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:baseline}
+.bk-date{font-family:var(--serif);font-size:16px;font-variant-numeric:tabular-nums}
+.bk-date small{font-family:var(--sans);color:var(--mute);font-size:12px;margin-left:6px}
+.pill{font-size:11px;padding:2px 8px;border-radius:999px;white-space:nowrap}
+.p-booked{background:var(--accent-soft);color:var(--accent)}
+.p-in{background:var(--warn-soft);color:var(--warn)}
+.p-out{background:var(--ok-soft);color:var(--ok)}
+.p-cancel{background:var(--soft);color:var(--mute)}
+.bk-meta{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:13px}
+.bk-meta .m{color:var(--mute)}
+.money{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;color:var(--mute);font-variant-numeric:tabular-nums}
+.money b{color:var(--ink);font-weight:600}
+.money .owe b{color:var(--warn)}
+.note{font-size:12px;color:var(--mute);white-space:pre-wrap;word-break:break-word}
+.acts{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.acts select{width:auto;padding:3px 6px;font-size:12px}
+.confirm{font-size:12px;color:var(--bad);display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.empty{text-align:center;color:var(--mute);padding:36px 12px;border:1px dashed var(--line);border-radius:var(--r)}
+.empty b{display:block;color:var(--ink);font-weight:500;margin-bottom:4px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:8px 16px;border-radius:999px;font-size:13px;z-index:20}
+.ro{font-size:12px;color:var(--warn);background:var(--warn-soft);border-radius:6px;padding:8px 10px}
+@media (prefers-reduced-motion:no-preference){.bk{transition:border-color .15s}}
+.bk:hover{border-color:var(--mute)}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:-8px 0 16px}
+.bar .hint{font-size:12px;color:var(--mute)}
+.bar .hint.due{color:var(--warn)}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+<h1>海春暖院 · 线下预订登记</h1>
+<p class="sub">微信、电话、老客、朋友介绍的预订都登记在这里。同一间房日期重叠会提示，避免超订和漏记。</p>
+<div class="bar">
+ <button type="button" class="sm" id="backupBtn">备份全部记录</button>
+ <button type="button" class="sm" id="restoreBtn">从备份恢复</button>
+ <input type="file" id="restoreFile" accept=".json,application/json" hidden>
+ <span class="hint" id="backupHint"></span>
+</div>
+
+<div class="strip" id="strip">
+ <div><div class="l" id="s-label">本月入住 · 订单</div><div class="v" id="s-n">0</div></div>
+ <div><div class="l">间夜</div><div class="v" id="s-rn">0</div></div>
+ <div><div class="l">房费</div><div class="v" id="s-total">0<small>元</small></div></div>
+ <div><div class="l">已收</div><div class="v" id="s-recv">0<small>元</small></div></div>
+ <div class="owe"><div class="l">待收</div><div class="v" id="s-owe">0<small>元</small></div></div>
+</div>
+
+<div class="cols">
+<section class="panel" id="formPanel">
+ <h2><span id="formTitle">新登记</span><button type="button" class="sm" id="cancelEdit" hidden>放弃修改</button></h2>
+  <form id="f" novalidate>
+  <div class="row">
+   <label>客人姓名 <b>*</b><input id="guest" autocomplete="off" placeholder="如 王女士"></label>
+   <label>联系电话<input id="phone" inputmode="tel" autocomplete="off" placeholder="手机号"></label>
+  </div>
+  <div class="row">
+   <label>预订来源<select id="channel"><option>微信</option><option>电话</option><option>老客回头</option><option>朋友介绍</option><option>抖音</option><option>小红书</option><option>其他</option></select></label>
+   <label>人数<input id="people" type="number" min="1" step="1" value="2"></label>
+  </div>
+  <div class="row">
+   <label>入住日期 <b>*</b><input id="checkin" type="date"></label>
+   <label>退房日期 <b>*</b><input id="checkout" type="date"></label>
+  </div>
+  <div>
+   <label style="margin-bottom:6px">房间 <b>*</b>（可多选，红色表示这几天已被占）</label>
+   <div class="rooms" id="rooms"></div>
+  </div>
+  <div class="row3">
+   <label>每间每晚房价<input id="price" type="number" min="0" step="1" placeholder="元"></label>
+   <label>房费合计<input id="total" type="number" min="0" step="1" placeholder="自动计算"></label>
+   <label>已收金额<input id="received" type="number" min="0" step="1" value="0"></label>
+  </div>
+  <div class="row">
+   <label>收款方式<select id="pay"><option>微信</option><option>支付宝</option><option>现金</option><option>银行转账</option><option>未收</option></select></label>
+   <label>状态<select id="status"><option value="booked">已预订</option><option value="in">已入住</option><option value="out">已退房</option><option value="cancel">已取消</option></select></label>
+  </div>
+  <div class="calc" id="calc">选好日期和房间后，这里显示间夜和金额</div>
+  <div class="row">
+   <label class="chk" style="align-self:end"><input type="checkbox" id="pickup"> 需要码头接船</label>
+   <label>船班 / 到岛时间<input id="ferry" placeholder="如 沈家门 9:00 班"></label>
+  </div>
+  <label>备注<textarea id="note" placeholder="特殊需求、是否开发票、定金说明等"></textarea></label>
+  <label>登记人<input id="recorder" placeholder="谁登记的"></label>
+  <div class="err" id="err" role="alert"></div>
+  <div class="btns"><button type="submit" class="pri" id="save">保存登记</button><button type="reset" id="clr">清空</button></div>
+ </form>
+</section>
+
+<section class="panel">
+ <h2><span>预订记录</span><button type="button" class="sm" id="exportBtn" hidden>导出 CSV</button></h2>
+ <div class="filters">
+  <select id="fMonth" aria-label="入住月份"></select>
+  <select id="fStatus" aria-label="状态"><option value="">全部状态</option><option value="booked">已预订</option><option value="in">已入住</option><option value="out">已退房</option><option value="cancel">已取消</option><option value="owe">有待收款</option></select>
+  <input id="fq" placeholder="搜姓名、电话、备注" aria-label="搜索">
+ </div>
+ <div class="list" id="list">
+  <div class="empty" id="loading"><b>还没有登记</b>在表单里填好客人、日期和房间，点保存登记。</div>
+ </div>
+</section>
+</div>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+const ROOMS=[["听风","1F · 两张1.5米床"],["听潮","1F · 两张1.5米床"],["听雨","1F · 1.8米床"],["见山","2F · 两张1.2米床"],["见海","2F · 1.8米床"],["见云","2F · 2米床·浴缸"]];
+const ST={booked:["已预订","p-booked"],in:["已入住","p-in"],out:["已退房","p-out"],cancel:["已取消","p-cancel"]};
+const $=(id)=>document.getElementById(id);
+const fmt=(n)=>Math.round(Number(n)||0).toLocaleString('zh-CN');
+let canWrite=true, all=[], editing=null, selRooms=new Set(), totalTouched=false, pendingConfirm=null;
+const KEY='haichun.bookings.v1', BKEY='haichun.lastBackup';
+function loadAll(){try{const v=JSON.parse(localStorage.getItem(KEY)||'[]');return Array.isArray(v)?v:[];}catch(e){return [];}}
+function saveAll(){try{localStorage.setItem(KEY,JSON.stringify(all));return true;}catch(e){return false;}}
+function newId(){return (window.crypto&&crypto.randomUUID?crypto.randomUUID():Date.now().toString(36)+Math.random().toString(36).slice(2));}
+const store={set(id,doc){const i=all.findIndex((b)=>b.id===id);const rec={id,...doc};if(i>=0)all[i]=rec;else all.push(rec);if(!saveAll())throw {code:'full'};render();},
+ update(id,f){const b=all.find((x)=>x.id===id);if(!b)return;Object.assign(b,f);if(!saveAll())throw {code:'full'};render();},
+ remove(id){all=all.filter((b)=>b.id!==id);saveAll();render();}};
+async function shareOrDownload(name,text,type){const blob=new Blob([text],{type});
+ try{const file=new File([blob],name,{type});if(navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file],title:name});return 'shared';}}catch(e){if(e&&e.name==='AbortError')return 'cancel';}
+ const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},2000);return 'downloaded';}
+
+function nightsOf(a,b){if(!a||!b)return 0;const d=(Date.parse(b)-Date.parse(a))/864e5;return d>0?Math.round(d):0;}
+function overlap(a1,b1,a2,b2){return a1<b2&&a2<b1;}
+function takenRooms(ci,co,exceptId){const t={};if(!ci||!co||co<=ci)return t;
+ all.forEach((b)=>{if(b.id===exceptId||b.status==='cancel')return;if(overlap(ci,co,b.checkin,b.checkout))(b.rooms||[]).forEach((r)=>{(t[r]=t[r]||[]).push(b.guest);});});return t;}
+
+function drawRooms(){const box=$('rooms');box.replaceChildren();const t=takenRooms($('checkin').value,$('checkout').value,editing);
+ ROOMS.forEach(([n,d])=>{const b=document.createElement('button');b.type='button';b.className='room'+(t[n]?' taken':'');b.setAttribute('aria-pressed',selRooms.has(n)?'true':'false');
+  b.textContent=n;const s=document.createElement('span');s.textContent=t[n]?('已被 '+t[n].join('、')+' 占用'):d;b.appendChild(s);
+  b.onclick=()=>{selRooms.has(n)?selRooms.delete(n):selRooms.add(n);drawRooms();recalc();};box.appendChild(b);});}
+
+function recalc(){const n=nightsOf($('checkin').value,$('checkout').value),rc=selRooms.size,p=Number($('price').value)||0;
+ if(!totalTouched&&p&&n&&rc)$('total').value=p*n*rc;
+ const tot=Number($('total').value)||0,rec=Number($('received').value)||0;
+ const c=$('calc');c.replaceChildren();
+ if(!n&&!rc){c.textContent='选好日期和房间后，这里显示间夜和金额';return;}
+ [['住',n+' 晚'],['房间',rc+' 间'],['间夜',(n*rc)+''],['合计',fmt(tot)+' 元'],['待收',fmt(Math.max(0,tot-rec))+' 元']].forEach(([k,v])=>{const s=document.createElement('span');s.append(k+' ');const b=document.createElement('b');b.textContent=v;s.appendChild(b);c.appendChild(s);});}
+
+['checkin','checkout'].forEach((id)=>$(id).addEventListener('change',()=>{drawRooms();recalc();}));
+$('price').addEventListener('input',()=>{totalTouched=false;recalc();});
+$('total').addEventListener('input',()=>{totalTouched=true;recalc();});
+$('received').addEventListener('input',recalc);
+$('f').addEventListener('input',()=>{$('err').textContent='';});
+
+function resetForm(){editing=null;selRooms=new Set();totalTouched=false;$('f').reset();$('formTitle').textContent='新登记';$('cancelEdit').hidden=true;$('save').textContent='保存登记';$('err').textContent='';drawRooms();recalc();}
+$('clr').addEventListener('click',(e)=>{e.preventDefault();resetForm();});
+$('cancelEdit').addEventListener('click',resetForm);
+
+function toast(t){const el=$('toast');el.textContent=t;el.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>{el.hidden=true;},2200);}
+
+$('f').addEventListener('submit',async(e)=>{e.preventDefault();
+ const g=$('guest').value.trim(),ci=$('checkin').value,co=$('checkout').value,n=nightsOf(ci,co);
+ if(!g)return fail('请填写客人姓名。');
+ if(!ci||!co)return fail('请选择入住和退房日期。');
+ if(!n)return fail('退房日期要晚于入住日期。');
+ if(!selRooms.size)return fail('请至少选一间房。');
+ const t=takenRooms(ci,co,editing),clash=[...selRooms].filter((r)=>t[r]);
+ const st=$('status').value;
+ if(clash.length&&st!=='cancel')return fail(clash.join('、')+' 在这几天已有登记（'+clash.map((r)=>t[r].join('、')).join('；')+'）。换一间房，或先把那条改成已取消。');
+ const tot=Number($('total').value)||0,rec=Number($('received').value)||0;
+ if(rec>tot&&tot>0)return fail('已收金额大于房费合计，请核对。');
+ const now=new Date().toISOString();
+ const old=editing?all.find((b)=>b.id===editing):null;
+ const doc={guest:g,phone:$('phone').value.trim(),channel:$('channel').value,people:Number($('people').value)||0,checkin:ci,checkout:co,nights:n,rooms:[...selRooms],
+  roomNights:n*selRooms.size,price:Number($('price').value)||0,total:tot,received:rec,pay:$('pay').value,status:st,pickup:$('pickup').checked,ferry:$('ferry').value.trim(),
+  note:$('note').value.trim(),recorder:$('recorder').value.trim(),createdAt:old?old.createdAt:now,updatedAt:now};
+ $('save').disabled=true;
+ try{store.set(editing||newId(),doc);toast(editing?'已保存修改':'已登记');resetForm();}
+ catch(err){fail('手机存储空间不足，没能保存。先备份并清理一些旧记录。');}
+ finally{$('save').disabled=false;}
+ function fail(m){$('err').textContent=m;}
+});
+function fail(m){$('err').textContent=m;}
+
+function edit(b){editing=b.id;selRooms=new Set(b.rooms||[]);totalTouched=true;
+ $('guest').value=b.guest||'';$('phone').value=b.phone||'';$('channel').value=b.channel||'微信';$('people').value=b.people||'';$('checkin').value=b.checkin;$('checkout').value=b.checkout;
+ $('price').value=b.price||'';$('total').value=b.total||0;$('received').value=b.received||0;$('pay').value=b.pay||'微信';$('status').value=b.status||'booked';
+ $('pickup').checked=!!b.pickup;$('ferry').value=b.ferry||'';$('note').value=b.note||'';$('recorder').value=b.recorder||'';
+ $('formTitle').textContent='修改：'+b.guest;$('cancelEdit').hidden=false;$('save').textContent='保存修改';drawRooms();recalc();$('formPanel').scrollIntoView({behavior:'smooth',block:'start'});}
+
+function patch(b,fields,msg){try{store.update(b.id,{...fields,updatedAt:new Date().toISOString()});toast(msg);}catch(e){toast('没能保存，手机存储空间不足');}}
+function remove(b){store.remove(b.id);toast('已删除');}
+
+function monthKey(d){return (d||'').slice(0,7);}
+function drawMonths(){const sel=$('fMonth'),cur=sel.value;const ms=new Set(all.map((b)=>monthKey(b.checkin)).filter(Boolean));const today=new Date();const tm=today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0');ms.add(tm);
+ const arr=[...ms].sort().reverse();sel.replaceChildren(new Option('全部月份',''),...arr.map((m)=>new Option(m.replace('-','年')+'月入住',m)));
+ sel.value=cur!==undefined&&(cur===''||arr.includes(cur))?cur:tm;if(!drawMonths.init){sel.value=tm;drawMonths.init=true;}}
+
+function filtered(){const m=$('fMonth').value,s=$('fStatus').value,q=$('fq').value.trim().toLowerCase();
+ return all.filter((b)=>(!m||monthKey(b.checkin)===m)&&(!s||(s==='owe'?(b.status!=='cancel'&&(b.total||0)>(b.received||0)):b.status===s))&&(!q||[b.guest,b.phone,b.note,b.ferry,b.recorder].join(' ').toLowerCase().includes(q)))
+  .sort((a,b)=>a.checkin<b.checkin?-1:a.checkin>b.checkin?1:0);}
+
+function drawStrip(){const m=$('fMonth').value,live=all.filter((b)=>b.status!=='cancel'&&(!m||monthKey(b.checkin)===m));
+ $('s-label').textContent=(m?m.replace('-','年')+'月':'全部')+'入住 · 订单';
+ const sum=(k)=>live.reduce((a,b)=>a+(Number(b[k])||0),0);
+ $('s-n').textContent=live.length;$('s-rn').textContent=sum('roomNights');
+ const setM=(id,v)=>{const el=$(id);el.firstChild.nodeValue=fmt(v);};
+ setM('s-total',sum('total'));setM('s-recv',sum('received'));setM('s-owe',live.reduce((a,b)=>a+Math.max(0,(b.total||0)-(b.received||0)),0));}
+
+function drawList(){const box=$('list');box.replaceChildren();const rows=filtered();$('exportBtn').hidden=!rows.length;
+ if(!rows.length){const e=document.createElement('div');e.className='empty';const b=document.createElement('b');b.textContent=all.length?'这个筛选下没有记录':'还没有登记';e.appendChild(b);e.append(all.length?'换个月份或状态看看。':'在左边填好客人、日期和房间，点保存登记。');box.appendChild(e);return;}
+ rows.forEach((b)=>{const el=document.createElement('article');el.className='bk'+(b.status==='cancel'?' cancelled':'');
+  const top=document.createElement('div');top.className='bk-top';const d=document.createElement('div');d.className='bk-date';d.textContent=b.checkin.slice(5).replace('-','/')+' – '+b.checkout.slice(5).replace('-','/');
+  const sm=document.createElement('small');sm.textContent=b.nights+' 晚 · '+(b.rooms||[]).join('、');d.appendChild(sm);
+  const p=document.createElement('span');const [lab,cls]=ST[b.status]||ST.booked;p.className='pill '+cls;p.textContent=lab;top.append(d,p);
+  const meta=document.createElement('div');meta.className='bk-meta';
+  const add=(t,c)=>{const s=document.createElement('span');if(c)s.className=c;s.textContent=t;meta.appendChild(s);};
+  add(b.guest);if(b.phone)add(b.phone,'m');add(b.channel+(b.people?' · '+b.people+' 人':''),'m');if(b.pickup)add('接船'+(b.ferry?'：'+b.ferry:''),'m');
+  const money=document.createElement('div');money.className='money';const owe=Math.max(0,(b.total||0)-(b.received||0));
+  [['房费',fmt(b.total)+' 元',''],['已收',fmt(b.received)+' 元 · '+(b.pay||''),''],['待收',fmt(owe)+' 元',owe>0&&b.status!=='cancel'?'owe':'']].forEach(([k,v,c])=>{const s=document.createElement('span');if(c)s.className=c;s.append(k+' ');const x=document.createElement('b');x.textContent=v;s.appendChild(x);money.appendChild(s);});
+  el.append(top,meta,money);
+  if(b.note){const n=document.createElement('div');n.className='note';n.textContent=b.note;el.appendChild(n);}
+  if(canWrite){const acts=document.createElement('div');acts.className='acts';
+   const eb=document.createElement('button');eb.type='button';eb.className='sm';eb.textContent='修改';eb.onclick=()=>edit(b);acts.appendChild(eb);
+   if(owe>0&&b.status!=='cancel'){const pb=document.createElement('button');pb.type='button';pb.className='sm';pb.textContent='尾款已收齐';pb.onclick=()=>patch(b,{received:b.total},'已记为收齐');acts.appendChild(pb);}
+   const ss=document.createElement('select');ss.setAttribute('aria-label','改状态');Object.entries(ST).forEach(([k,[l]])=>ss.appendChild(new Option(l,k)));ss.value=b.status;
+   ss.onchange=()=>{if(ss.value!=='cancel'){const t=takenRooms(b.checkin,b.checkout,b.id),c=(b.rooms||[]).filter((r)=>t[r]);if(c.length){toast(c.join('、')+' 这几天已被占用，不能恢复');ss.value=b.status;return;}}patch(b,{status:ss.value},'状态已改为'+ST[ss.value][0]);};acts.appendChild(ss);
+   if(pendingConfirm===b.id){const c=document.createElement('span');c.className='confirm';c.append('删除后无法恢复，确定？');const y=document.createElement('button');y.type='button';y.className='sm danger';y.textContent='删除';y.onclick=()=>{pendingConfirm=null;remove(b);};const nn=document.createElement('button');nn.type='button';nn.className='sm';nn.textContent='保留';nn.onclick=()=>{pendingConfirm=null;drawList();};c.append(y,nn);acts.appendChild(c);}
+   else{const db_=document.createElement('button');db_.type='button';db_.className='sm';db_.textContent='删除';db_.onclick=()=>{pendingConfirm=b.id;drawList();};acts.appendChild(db_);}
+   el.appendChild(acts);}
+  box.appendChild(el);});}
+
+function render(){drawMonths();drawStrip();drawList();drawRooms();drawBackupHint();}
+['fMonth','fStatus'].forEach((id)=>$(id).addEventListener('change',()=>{drawStrip();drawList();}));
+$('fq').addEventListener('input',drawList);
+
+$('exportBtn').addEventListener('click',async()=>{const rows=filtered();
+ const H=['入住','退房','晚数','房间','间夜','客人','电话','来源','人数','每晚房价','房费合计','已收','待收','收款方式','状态','接船','船班','备注','登记人','登记时间'];
+ const q=(v)=>{const s=String(v??'');return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;};
+ const lines=[H.join(',')].concat(rows.map((b)=>[b.checkin,b.checkout,b.nights,(b.rooms||[]).join('、'),b.roomNights,b.guest,b.phone,b.channel,b.people,b.price,b.total,b.received,Math.max(0,(b.total||0)-(b.received||0)),b.pay,(ST[b.status]||ST.booked)[0],b.pickup?'是':'',b.ferry,b.note,b.recorder,(b.createdAt||'').slice(0,10)].map(q).join(',')));
+ const m=$('fMonth').value||'全部';
+ const r=await shareOrDownload('海春暖院线下预订_'+m+'.csv','\ufeff'+lines.join('\n'),'text/csv');if(r!=='cancel')toast('已导出');});
+
+drawRooms();recalc();drawMonths();drawStrip();
+
+function drawBackupHint(){const el=$('backupHint');let last=null;try{last=localStorage.getItem(BKEY);}catch(e){}
+ if(!all.length){el.textContent='记录只存在这台手机里，记得定期备份';el.className='hint';return;}
+ const days=last?Math.floor((Date.now()-Date.parse(last))/864e5):null;
+ el.textContent=last?('上次备份：'+last.slice(0,10)+(days>=30?'，已超过 30 天，建议现在备份':'')):'还没备份过，建议现在备份一次';
+ el.className='hint'+((!last||days>=30)?' due':'');}
+$('backupBtn').addEventListener('click',async()=>{const now=new Date();const name='海春登记备份_'+now.toISOString().slice(0,10)+'.json';
+ const r=await shareOrDownload(name,JSON.stringify({app:'haichun-booking',version:1,exportedAt:now.toISOString(),bookings:all},null,1),'application/json');
+ if(r!=='cancel'){try{localStorage.setItem(BKEY,now.toISOString());}catch(e){}drawBackupHint();toast('备份文件已生成，存到微信或网盘里');}});
+$('restoreBtn').addEventListener('click',()=>$('restoreFile').click());
+$('restoreFile').addEventListener('change',async(e)=>{const f=e.target.files&&e.target.files[0];e.target.value='';if(!f)return;
+ try{const d=JSON.parse(await f.text());const list=Array.isArray(d)?d:d.bookings;if(!Array.isArray(list))throw 0;
+  let add=0,upd=0;list.forEach((b)=>{if(!b||!b.id||!b.checkin)return;const k=all.findIndex((x)=>x.id===b.id);if(k>=0){if((b.updatedAt||'')>(all[k].updatedAt||'')){all[k]=b;upd++;}}else{all.push(b);add++;}});
+  saveAll();render();toast('已恢复：新增 '+add+' 条，更新 '+upd+' 条');}catch(err){toast('这个文件不是海春登记的备份');}});
+all=loadAll();render();
+try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist();}catch(e){}
+if('serviceWorker' in navigator){window.addEventListener('load',()=>{navigator.serviceWorker.register('sw.js').catch(()=>{});});}
+</script>
+</body>
+</html>
