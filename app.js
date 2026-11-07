@@ -9,7 +9,7 @@ const PICKUPS=['待确认','需接船','已安排','已接到','无需接船'];
 const TICKETS=['待确认','未购票','已购票','有变动','停航/取消'];
 const GUEST_TYPES=['未记录','情侣/夫妻','亲子家庭','朋友同行','独自出行','其他'];
 const KEY='haichun.zkb.v2', OLD_KEY='haichun.bookings.v1', BKEY='haichun.zkb.lastBackup', EKEY='haichun.zkb.exp.v1';
-const EXP_CATS=['食材早餐','日用品','清洁洗涤','维修五金','交通船票','快递运费','接待招待','其他'];
+const EXP_CATS=['早餐食材','员工菜钱','员工餐费','维修五金','水','饮料','接待招待','客人代买','其他'];
 const EXP_PAY=['微信','支付宝','现金','其他'];
 const STATUS_CLS={'已预订':'p-booked','已入住':'p-in','已退房':'p-out','已取消':'p-cancel','待确认':'p-pending'};
 
@@ -119,9 +119,9 @@ function viewToday(){const d=dayView, act=live().filter((r)=>ACTIVE.includes(r.s
  h+=`<section class="sec"><div class="sec-h"><h3>当日到店</h3><span>按船班时间排</span></div>${arr.length?'<div class="list">'+arr.map((r)=>ticketHTML(r,'in',d)).join('')+'</div>':'<div class="empty">这一天没有客人到店</div>'}</section>`;
  if(dep.length)h+=`<section class="sec"><div class="sec-h"><h3>当日离店</h3><span>退房 9:30 前</span></div><div class="list">${dep.map((r)=>ticketHTML(r,'out',d)).join('')}</div></section>`;
  const inNotes=inHouse.filter((r)=>r.notes||(r.tasks||[]).some((t)=>!t.done)||nextOf(r));
- if(inNotes.length)h+=`<section class="sec"><div class="sec-h"><h3>在住客人 · 注意事项与换房</h3><span>${inNotes.length} 间</span></div><div class="list">${inNotes.map((r)=>`<article class="card mini"><div class="thead"><button type="button" class="tname" data-open="${esc(r.id)}">${esc(r.name)}</button>${plate(r.room)}<span class="tmeta">${cn(r.checkout)}离店</span></div>${noteHTML(r)}${tasksHTML(r)}${nextHTML(r,d)}</article>`).join('')}</div></section>`;
+ if(inNotes.length)h+=`<section class="sec"><div class="sec-h"><h3>在住客人 · 注意事项与换房</h3><span>${inNotes.length} 间</span></div><div class="list">${inNotes.map((r)=>`<article class="card mini"><div class="thead"><button type="button" class="tname" data-open="${esc(r.id)}">${esc(r.name)}</button>${plate(r.room)}<span class="tmeta">${md(r.checkout)}离店</span></div>${noteHTML(r)}${tasksHTML(r)}${nextHTML(r,d)}</article>`).join('')}</div></section>`;
  if(tasks.length)h+=`<section class="sec"><div class="sec-h"><h3>其他到期事项</h3><span>含已过期未完成</span></div><div class="list">${tasks.map(({r,t,i})=>`<div class="row"><div class="main"><div class="t">${t.priority==='重要'?'<em class="imp">重要</em>':''}${esc(t.text)}</div><div class="m">${esc(r.name)} · ${esc(r.room)} · ${t.due<d?'已过期 '+md(t.due):'今天'}</div></div><div class="r"><button type="button" class="sm" data-done="${esc(r.id)}" data-ti="${i}">完成</button></div></div>`).join('')}</div></section>`;
- h+=`<section class="sec"><div class="sec-h"><h3>六间房，当晚</h3><button type="button" class="link" data-tab-go="calendar">房态日历 →</button></div><div class="rooms6">${ROOMS.map(([n,desc])=>{const r=stay.find((x)=>x.room===n);return `<div class="rm${r?' occ':''}"${r?` data-open="${esc(r.id)}" role="button" tabindex="0"`:''}><b>${n}</b><div>${r?esc(r.name)+(r.checkin===d?' · 本日入住':'')+' · '+cn(r.checkout)+'离店':'空房'}</div>${r&&r.checkout===addDays(d,1)&&nextOf(r)?`<div class="nx">${cn(r.checkout)}换客${(()=>{const n=nextOf(r);return n.arrival&&n.arrival.date===n.checkin&&n.arrival.time?' · 船 '+esc(n.arrival.time):'';})()}</div>`:''}</div>`;}).join('')}</div></section>`;
+ h+=`<section class="sec"><div class="sec-h"><h3>六间房，当晚</h3><button type="button" class="link" data-tab-go="calendar">房态日历 →</button></div><div class="rooms6">${ROOMS.map(([n,desc])=>{const r=stay.find((x)=>x.room===n);return `<div class="rm${r?' occ':''}"${r?` data-open="${esc(r.id)}" role="button" tabindex="0"`:''}><b>${n}</b><div>${r?esc(r.name)+(r.checkin===d?' · 本日入住':'')+' · '+md(r.checkout)+'离店':'空房'}</div>${r&&r.checkout===addDays(d,1)&&nextOf(r)?`<div class="nx">${cn(r.checkout)}换客${(()=>{const n=nextOf(r);return n.arrival&&n.arrival.date===n.checkin&&n.arrival.time?' · 船 '+esc(n.arrival.time):'';})()}</div>`:''}</div>`;}).join('')}</div></section>`;
  if(pend.length)h+=`<section class="sec"><div class="sec-h"><h3>待确认的预订</h3><span>不占房，确认后改成已预订</span></div><div class="list">${pend.map((r)=>rowHTML(r)).join('')}</div></section>`;
  const dx=liveExp().filter((x)=>x.date===d).sort((a,b)=>(a.createdAt||'').localeCompare(b.createdAt||''));
  h+=`<section class="sec" id="expSec"><div class="sec-h"><h3>本日花费小记</h3><span>${dx.length?dx.length+' 笔 · 合计 '+yuan(expSum(dx))+' 元':'临时小额支出，记在这里'}</span></div>
@@ -182,7 +182,7 @@ function viewStats(){const [s,e]=monthRange(statMonth);const recs=live();
  return h;}
 
 function advHTML(s,e){const mx=liveExp().filter((x)=>x.date>=s&&x.date<e), pendAll=liveExp().filter((x)=>!x.settled).sort((a,b)=>a.date.localeCompare(b.date));
- const mPend=mx.filter((x)=>!x.settled);const cat=EXP_CATS.map((c)=>({c,v:expSum(mx.filter((x)=>x.category===c))})).filter((x)=>x.v);const maxV=Math.max(1,...cat.map((x)=>x.v));
+ const mPend=mx.filter((x)=>!x.settled);const cat=[...new Set(EXP_CATS.concat(mx.map((x)=>x.category)))].map((c)=>({c,v:expSum(mx.filter((x)=>x.category===c))})).filter((x)=>x.v);const maxV=Math.max(1,...cat.map((x)=>x.v));
  const who=[...new Set(pendAll.map((x)=>x.payer||'自己'))].map((w)=>({w,v:expSum(pendAll.filter((x)=>(x.payer||'自己')===w))}));
  return `<section class="sec"><div class="sec-h"><h3>垫付总计</h3><span>来自「本日花费小记」</span></div>
  <div class="grid3"><div class="kpi"><div class="l">本月花费</div><div class="v">${yuan(expSum(mx))}<small>元</small></div><div class="s">${mx.length} 笔</div></div>
