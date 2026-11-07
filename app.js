@@ -20,6 +20,7 @@ function days(a,b){return Math.round((Date.parse(b+'T00:00:00Z')-Date.parse(a+'T
 function dateOK(v){return typeof v==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(v)&&!Number.isNaN(Date.parse(v+'T00:00:00Z'));}
 const WD='日一二三四五六';
 function wd(s){return '周'+WD[new Date(s+'T00:00:00').getDay()];}
+function cn(s){return s?Number(s.slice(5,7))+'月'+Number(s.slice(8,10))+'日':'';}
 function md(s){return s?Number(s.slice(5,7))+'/'+Number(s.slice(8,10)):'';}
 const cents=(v)=>v===null||v===undefined||v===''?null:Math.round(Number(v)*100);
 function yuan(c){if(c===null||c===undefined)return '—';const n=c/100;return n.toLocaleString('zh-CN',{minimumFractionDigits:Number.isInteger(n)?0:2,maximumFractionDigits:2});}
@@ -75,7 +76,7 @@ function rowHTML(r,right){const n=nightsOf(r);return `<button type="button" clas
  <div class="r">${right||`<span class="pill ${STATUS_CLS[r.status]}">${esc(r.status)}</span>`}</div></button>`;}
 function nextOf(r){return live().find((x)=>x.id!==r.id&&ACTIVE.includes(x.status)&&x.room===r.room&&x.checkin===r.checkout)||null;}
 function nextHTML(r,d){const n=nextOf(r);if(!n)return '';const l=n.arrival&&n.arrival.date===n.checkin?n.arrival:null;
- const when=n.checkin===d?'今天':(n.checkin===addDays(d,1)?'明天':md(n.checkin));
+ const when=n.checkin===d?'本日':cn(n.checkin);
  return `<div class="next">下一位：<button type="button" class="link" data-open="${esc(n.id)}">${esc(n.name)}</button> · ${when}入住 · ${l&&l.time?'来程船 <b>'+esc(l.time)+'</b>'+(l.port?'（'+esc(l.port)+'）':''):'来程船班未填'}</div>`;}
 const PICK_NEXT={'待确认':'需接船','需接船':'已安排','已安排':'已接到','已接到':'需接船','无需接船':'需接船'};
 function plate(n){return `<span class="plate">${esc(n)}</span>`;}
@@ -101,12 +102,12 @@ function viewToday(){const d=dayView, act=live().filter((r)=>ACTIVE.includes(r.s
  let h=`<section class="hero"><div class="hero-date"><b>${dt.getMonth()+1}月${dt.getDate()}日</b><span>${wd(d)} · 庙子湖${isToday?' · 今天':''}</span></div>
  <div class="hero-sum"><span><b>${arr.length}</b>到店</span><span><b>${dep.length}</b>离店</span><span><b>${stay.length}</b>/6 在住</span></div>
  <div class="daynav"><button type="button" class="sm" data-day="-1" aria-label="前一天">‹ 前一天</button><input type="date" id="dayPick" value="${esc(d)}" aria-label="安排日期"><button type="button" class="sm" data-day="1" aria-label="后一天">后一天 ›</button>${isToday?'':'<button type="button" class="sm" data-day="0">今天</button>'}</div></section>`;
- h+=`<section class="sec"><div class="sec-h"><h3>到店与接船</h3><span>按船班时间排</span></div>${arr.length?'<div class="list">'+arr.map((r)=>ticketHTML(r,'in',d)).join('')+'</div>':'<div class="empty">这一天没有客人到店</div>'}</section>`;
- if(dep.length)h+=`<section class="sec"><div class="sec-h"><h3>离店与返程</h3><span>退房 9:30 前</span></div><div class="list">${dep.map((r)=>ticketHTML(r,'out',d)).join('')}</div></section>`;
+ h+=`<section class="sec"><div class="sec-h"><h3>当日到店</h3><span>按船班时间排</span></div>${arr.length?'<div class="list">'+arr.map((r)=>ticketHTML(r,'in',d)).join('')+'</div>':'<div class="empty">这一天没有客人到店</div>'}</section>`;
+ if(dep.length)h+=`<section class="sec"><div class="sec-h"><h3>当日离店</h3><span>退房 9:30 前</span></div><div class="list">${dep.map((r)=>ticketHTML(r,'out',d)).join('')}</div></section>`;
  const inNotes=inHouse.filter((r)=>r.notes||(r.tasks||[]).some((t)=>!t.done)||nextOf(r));
  if(inNotes.length)h+=`<section class="sec"><div class="sec-h"><h3>在住客人 · 注意事项与换房</h3><span>${inNotes.length} 间</span></div><div class="list">${inNotes.map((r)=>`<article class="card mini"><div class="thead"><button type="button" class="tname" data-open="${esc(r.id)}">${esc(r.name)}</button>${plate(r.room)}<span class="tmeta">住到 ${md(r.checkout)}</span></div>${noteHTML(r)}${tasksHTML(r)}${nextHTML(r,d)}</article>`).join('')}</div></section>`;
  if(tasks.length)h+=`<section class="sec"><div class="sec-h"><h3>其他到期事项</h3><span>含已过期未完成</span></div><div class="list">${tasks.map(({r,t,i})=>`<div class="row"><div class="main"><div class="t">${t.priority==='重要'?'<em class="imp">重要</em>':''}${esc(t.text)}</div><div class="m">${esc(r.name)} · ${esc(r.room)} · ${t.due<d?'已过期 '+md(t.due):'今天'}</div></div><div class="r"><button type="button" class="sm" data-done="${esc(r.id)}" data-ti="${i}">完成</button></div></div>`).join('')}</div></section>`;
- h+=`<section class="sec"><div class="sec-h"><h3>六间房，当晚</h3><button type="button" class="link" data-tab-go="calendar">房态日历 →</button></div><div class="rooms6">${ROOMS.map(([n,desc])=>{const r=stay.find((x)=>x.room===n);return `<div class="rm${r?' occ':''}"${r?` data-open="${esc(r.id)}" role="button" tabindex="0"`:''}><b>${n}</b><div>${r?esc(r.name)+(r.checkin===d?' · 今天到':'')+' · 至 '+md(r.checkout):'空房'}</div>${r&&r.checkout===addDays(d,1)&&nextOf(r)?`<div class="nx">明天换客${(()=>{const n=nextOf(r);return n.arrival&&n.arrival.date===n.checkin&&n.arrival.time?' · 船 '+esc(n.arrival.time):'';})()}</div>`:''}</div>`;}).join('')}</div></section>`;
+ h+=`<section class="sec"><div class="sec-h"><h3>六间房，当晚</h3><button type="button" class="link" data-tab-go="calendar">房态日历 →</button></div><div class="rooms6">${ROOMS.map(([n,desc])=>{const r=stay.find((x)=>x.room===n);return `<div class="rm${r?' occ':''}"${r?` data-open="${esc(r.id)}" role="button" tabindex="0"`:''}><b>${n}</b><div>${r?esc(r.name)+(r.checkin===d?' · 本日入住':'')+' · 至 '+md(r.checkout):'空房'}</div>${r&&r.checkout===addDays(d,1)&&nextOf(r)?`<div class="nx">${cn(r.checkout)}换客${(()=>{const n=nextOf(r);return n.arrival&&n.arrival.date===n.checkin&&n.arrival.time?' · 船 '+esc(n.arrival.time):'';})()}</div>`:''}</div>`;}).join('')}</div></section>`;
  if(pend.length)h+=`<section class="sec"><div class="sec-h"><h3>待确认的预订</h3><span>不占房，确认后改成已预订</span></div><div class="list">${pend.map((r)=>rowHTML(r)).join('')}</div></section>`;
  h+='<p class="note">船班只记录客人的出行计划，不代表已核实或保证开航。</p>';
  return h;}
@@ -241,7 +242,7 @@ function legFields(k,l,label){const full=k!=='arrival';return `<div class="leg">
 function drawEditor(){const d=$('editor'),r=ed;
  d.innerHTML=`<form class="dlg" id="edForm" novalidate><div class="dlg-h"><h3>${r._isNew?'新建登记':'编辑登记'}</h3><button type="button" class="sm" id="edClose">关闭</button></div><div class="dlg-b">
  <p class="muted" style="margin:0;font-size:13px">先记住宿和房费，其他资料随时补。</p>
- <div class="field-row"><label>客人称呼 <b>*</b><input id="eName" value="${esc(r.name)}" placeholder="怎样称呼客人" autocomplete="off"></label><label>联系电话<input id="ePhone" inputmode="tel" value="${esc(r.phone)}" placeholder="可稍后补充" autocomplete="off"></label></div>
+ <div class="field-row"><label>客人称呼 <b>*</b><input id="eName" value="${esc(r.name)}" placeholder="怎样称呼客人" autocomplete="off"></label><label>联系电话<input id="ePhone" type="tel" inputmode="numeric" pattern="1[0-9]{10}" oninput="this.value=this.value.replace(/\\D/g,'').slice(0,11)" value="${esc(r.phone)}" placeholder="11 位手机号，可稍后补充" autocomplete="off"></label></div>
  <div class="field-row"><label>入住日期 <b>*</b><input type="date" id="eIn" value="${esc(r.checkin)}"></label><label>退房日期 <b>*</b><input type="date" id="eOut" value="${esc(r.checkout)}"></label></div>
  <div><label style="margin-bottom:6px">选择房间 <b>*</b></label><div class="roomsel" id="eRooms"></div></div>
  <div id="eConflict"></div>
@@ -291,7 +292,7 @@ function drawTasks(){const box=$('eTasks');if(!box)return;box.innerHTML=ed.tasks
   <div class="tsub"><input type="date" data-tk="${i}.due" value="${esc(t.due)}" aria-label="事项日期"><select data-tk="${i}.priority" aria-label="优先级"><option${t.priority==='普通'?' selected':''}>普通</option><option${t.priority==='重要'?' selected':''}>重要</option></select></div>`;box.appendChild(w);});
  box.querySelectorAll('[data-tdel]').forEach((b)=>b.onclick=()=>{sync();ed.tasks.splice(Number(b.dataset.tdel),1);edDirty=true;drawTasks();});}
 function sync(){if(!$('edForm'))return;const v=(id)=>$(id)?$(id).value:'';
- ed.name=v('eName').trim();ed.phone=v('ePhone').trim();ed.checkin=v('eIn');ed.checkout=v('eOut');ed.notes=v('eNotes').trim();
+ ed.name=v('eName').trim();ed.phone=v('ePhone').replace(/\D/g,'');ed.checkin=v('eIn');ed.checkout=v('eOut');ed.notes=v('eNotes').trim();
  ed.nightlyRate=v('eRate')===''?null:Number(v('eRate'));ed.amount=v('eAmt')===''?null:Number(v('eAmt'));ed.paid=v('ePaid')===''?null:Number(v('ePaid'));
  ed.pickup=v('ePickup')||ed.pickup;ed.adults=Number(v('eAd'))||1;ed.children=Number(v('eCh'))||0;ed.channel=v('eChan')||ed.channel;ed.bookingDate=v('eBk');
  ed.reference=v('eRef').trim();ed.refund=v('eRefund')===''?null:Number(v('eRefund'));ed.group=v('eGroup').trim();ed.guestType=v('eGT')||ed.guestType;ed.origin=v('eOrigin').trim();
@@ -310,7 +311,7 @@ function submitEditor(){sync();const r=ed,err=(m)=>{$('eErr').textContent=m;};
  if(r.checkout<=r.checkin)return err('退房日期要晚于入住日期。');
  if(days(r.checkin,r.checkout)>366)return err('住宿超过 366 晚，请核对日期。');
  if(!r.room)return err('请选择房间。');
- if(r.phone&&!/^[+\d()\s-]{5,40}$/.test(r.phone))return err('电话格式不对，只能有数字、空格和 + - ( )。');
+ if(r.phone&&!/^1\d{10}$/.test(r.phone))return err('手机号要 11 位数字，以 1 开头。');
  if(!dateOK(r.bookingDate)||r.bookingDate>r.checkin)r.bookingDate=r.checkin<today()?r.checkin:today();
  if(r.bookingDate>r.checkin)r.bookingDate=r.checkin;
  try{['nightlyRate','amount','paid','refund'].forEach((k)=>{r[k]=moneyIn(r[k]);});}catch(e){return err(e.message);}
