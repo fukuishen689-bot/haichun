@@ -206,6 +206,7 @@ function bindView(){const v=$('view');
 /* ---------- 详情 ---------- */
 let detailConfirm=false;
 function openDetail(id){const r=all.find((x)=>x.id===id);if(!r)return;detailConfirm=false;drawDetail(r);const d=$('detail');if(!d.open)d.showModal();}
+const PORTS=['沈家门','沈家湾','东福山','青浜岛'];
 function legTxt(l){if(!l||!(l.date||l.time||l.port||l.ship))return '未填写';return [l.date?md(l.date):'',l.time,l.port,l.ship].filter(Boolean).join(' · ')+'（'+l.ticket+'）';}
 function drawDetail(r){const d=$('detail'),n=nightsOf(r),o=owe(r),c=conflictOf(r,r.id);
  d.innerHTML=`<div class="dlg"><div class="dlg-h"><h3>${esc(r.name)} · ${esc(r.room)}</h3><button type="button" class="sm" data-x>关闭</button></div><div class="dlg-b">
@@ -250,7 +251,7 @@ function drawEditor(){const d=$('editor'),r=ed;
  <label>房费合计（元）<input type="number" inputmode="decimal" min="0" step="0.01" id="eAmt" value="${r.amount??''}" placeholder="可直接修改"></label>
  <label>已收款（元）<input type="number" inputmode="decimal" min="0" step="0.01" id="ePaid" value="${r.paid??''}" placeholder="未收填 0"></label></div>
  <div class="calc" id="eCalc"></div>
- <div class="field-row"><label>来程船班时间（接船用）<input type="time" data-leg="arrival.time" value="${esc(r.arrival.time)}"></label><label>出发港 → 到达港<input data-leg="arrival.port" value="${esc(r.arrival.port)}" placeholder="如 沈家门 → 庙子湖"></label></div>
+ <div class="field-row"><label>来程船班时间（接船用）<input type="time" id="eArrTime" data-leg="arrival.time" value="${esc(r.arrival.time)}"></label><label>出发港<select data-leg="arrival.port"><option value="">未填</option>${(PORTS.includes(r.arrival.port)||!r.arrival.port?PORTS:PORTS.concat([r.arrival.port])).map((p)=>`<option${p===r.arrival.port?' selected':''}>${esc(p)}</option>`).join('')}</select></label></div>
  <label>备注 / 注意事项（今日安排里会显示）<textarea id="eNotes" placeholder="例如：带儿童、行李较多、对海鲜过敏、需要提前联系">${esc(r.notes)}</textarea></label>
  <details><summary>船票状态、返程船班与接船进度</summary><div class="inner">
   <label>接船进度<select id="ePickup">${PICKUPS.map((p)=>`<option${p===r.pickup?' selected':''}>${p}</option>`).join('')}</select></label>
@@ -275,6 +276,7 @@ function drawEditor(){const d=$('editor'),r=ed;
  $('ePaid').addEventListener('input',()=>{sync();recalc();});
  $('eAddTask').addEventListener('click',()=>{sync();ed.tasks.push({text:'',done:false,due:ed.checkin||today(),priority:'普通'});drawTasks();});
  f.addEventListener('submit',(e)=>{e.preventDefault();submitEditor();});
+ {const t=$('eArrTime');if(t){const seed=()=>{if(!t.value)t.value='08:05';};t.addEventListener('pointerdown',seed);t.addEventListener('focus',seed);}}
  const close=()=>{if(edDirty){edConfirmClose=true;sync();drawEditor();}else d.close();};
  $('edClose').onclick=close;if($('edCancel'))$('edCancel').onclick=close;
  if($('edDiscard'))$('edDiscard').onclick=()=>{edDirty=false;d.close();};
