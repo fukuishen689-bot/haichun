@@ -185,3 +185,15 @@ details .inner{display:grid;gap:10px}
 .rm .nx{font-size:12px;color:var(--warn);margin-top:2px}
 .brand b{white-space:nowrap}
 @media (max-width:480px){.brand span{display:none}}
+/* 到店与花费 */
+.thead .tact{margin-left:auto;display:flex;align-items:center;gap:6px;white-space:nowrap}
+.arrive{padding:4px 12px}
+.arrived{font-size:13px;color:var(--ok);background:var(--ok-soft);border-radius:999px;padding:2px 10px;font-weight:600}
+.undo{font-size:12px;color:var(--mute)}
+.ticket.done{opacity:.72}
+.row.exp .r{display:flex;align-items:center;gap:8px;white-space:nowrap}
+.row.exp .amt{font-variant-numeric:tabular-nums;font-size:16px}
+.row.exp.settled .amt{color:var(--mute)}
+.row .t small{font-weight:400;color:var(--mute);margin-left:6px;font-size:12px}
+.expform{margin-top:10px;display:grid;gap:10px}
+.expform .actions{margin-top:0}
