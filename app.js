@@ -43,7 +43,7 @@ function load(){
 function persist(){try{localStorage.setItem(KEY,JSON.stringify(all));return true;}catch(e){return false;}}
 function blank(over){return Object.assign({id:'',name:'',phone:'',room:'',checkin:'',checkout:'',bookingDate:today(),adults:2,children:0,channel:'微信直订',status:'已预订',
  pricingMode:'nightly',nightlyRate:null,amount:null,paid:null,refund:null,reference:'',group:'',origin:'',guestType:'未记录',
- arrival:{date:'',time:'',port:'',ship:'',ticket:'待确认'},departure:{date:'',time:'',port:'',ship:'',ticket:'待确认'},pickup:'待确认',notes:'',tasks:[],deleted:false,deletedAt:'',createdAt:'',updatedAt:''},over||{});}
+ arrival:{date:'',time:'',port:'',ship:'',ticket:'待确认'},departure:{date:'',time:'',port:'',ship:'',ticket:'待确认'},pickup:'需接船',notes:'',tasks:[],deleted:false,deletedAt:'',createdAt:'',updatedAt:''},over||{});}
 const live=()=>all.filter((r)=>!r.deleted);
 const isActive=(r)=>!r.deleted&&ACTIVE.includes(r.status);
 function conflictOf(rec,exceptId){if(!ACTIVE.includes(rec.status)||!rec.room||!dateOK(rec.checkin)||!dateOK(rec.checkout)||rec.checkout<=rec.checkin)return null;
@@ -73,26 +73,42 @@ function render(){const v=$('view');
 function rowHTML(r,right){const n=nightsOf(r);return `<button type="button" class="row" data-open="${esc(r.id)}"><div class="main"><div class="t">${esc(r.name)}<small>${esc(r.room)} · ${md(r.checkin)}–${md(r.checkout)} · ${n} 晚</small></div>
  <div class="m">${esc(r.channel)}${r.phone?' · '+esc(r.phone):''}${r.pickup==='需接船'||r.pickup==='已安排'?' · <span class="pill p-warn">'+esc(r.pickup)+'</span>':''}</div></div>
  <div class="r">${right||`<span class="pill ${STATUS_CLS[r.status]}">${esc(r.status)}</span>`}</div></button>`;}
+function nextOf(r){return live().find((x)=>x.id!==r.id&&ACTIVE.includes(x.status)&&x.room===r.room&&x.checkin===r.checkout)||null;}
+function nextHTML(r,d){const n=nextOf(r);if(!n)return '';const l=n.arrival&&n.arrival.date===n.checkin?n.arrival:null;
+ const when=n.checkin===d?'今天':(n.checkin===addDays(d,1)?'明天':md(n.checkin));
+ return `<div class="next">下一位：<button type="button" class="link" data-open="${esc(n.id)}">${esc(n.name)}</button> · ${when}入住 · ${l&&l.time?'来程船 <b>'+esc(l.time)+'</b>'+(l.port?'（'+esc(l.port)+'）':''):'来程船班未填'}</div>`;}
+const PICK_NEXT={'待确认':'需接船','需接船':'已安排','已安排':'已接到','已接到':'需接船','无需接船':'需接船'};
+function plate(n){return `<span class="plate">${esc(n)}</span>`;}
+function tasksHTML(r){const ts=(r.tasks||[]);if(!ts.length)return '';return `<ul class="todo">${ts.map((t,i)=>`<li><label class="chk"><input type="checkbox" data-tdone="${esc(r.id)}" data-ti="${i}"${t.done?' checked':''}><span class="${t.done?'done':''}">${t.priority==='重要'?'<em class="imp">重要</em>':''}${esc(t.text)}${t.due?'<small> · '+md(t.due)+'</small>':''}</span></label></li>`).join('')}</ul>`;}
+function noteHTML(r){return r.notes?`<p class="tnote">${esc(r.notes).replace(/\n/g,'<br>')}</p>`:'';}
+function routeHTML(l,d){if(!l||l.date!==d||!(l.port||l.time||l.ship))return '';const parts=(l.port||'').split(/\s*(?:→|->|—>|到)\s*/);
+ const from=parts[0]||'出发港待补充', to=parts.length>1?parts.slice(1).join(' → '):'';
+ const tk=l.ticket&&l.ticket!=='待确认'?` <span class="tk ${l.ticket==='已购票'?'ok':(l.ticket==='有变动'||l.ticket==='停航/取消')?'bad':''}">${esc(l.ticket)}</span>`:'';
+ return `<div class="route">${esc(from)}${l.time?' <b>'+esc(l.time)+'</b> 出发':''}${to?' → '+esc(to):''}${l.ship?' · '+esc(l.ship):''}${tk}</div>`;}
+function ticketHTML(r,kind,d){const l=kind==='in'?r.arrival:r.departure;const o=owe(r);
+ const route=routeHTML(l,d)||`<div class="route muted">${kind==='in'?'来程船班未填':'返程船班未填'}</div>`;
+ const money=kind==='out'?(o>0?`<div class="owe">待收 ${yuan(o)} 元</div>`:''):'';
+ return `<article class="ticket"><div class="tmain"><div class="thead"><button type="button" class="tname" data-open="${esc(r.id)}">${esc(r.name)}</button>${plate(r.room)}<span class="tmeta">${nightsOf(r)} 晚 · ${r.adults} 大${r.children?' '+r.children+' 小':''}${r.phone?' · '+esc(r.phone):''}</span></div>${route}${noteHTML(r)}${tasksHTML(r)}${money}${nextHTML(r,d)}</div></article>`;}
 function viewToday(){const d=dayView, act=live().filter((r)=>ACTIVE.includes(r.status));
- const arr=act.filter((r)=>r.checkin===d), dep=act.filter((r)=>r.checkout===d), stay=act.filter((r)=>r.checkin<=d&&r.checkout>d);
+ const arr=act.filter((r)=>r.checkin===d).sort((a,b)=>((a.arrival.date===d&&a.arrival.time)||'99').localeCompare((b.arrival.date===d&&b.arrival.time)||'99'));
+ const dep=act.filter((r)=>r.checkout===d).sort((a,b)=>((a.departure.date===d&&a.departure.time)||'99').localeCompare((b.departure.date===d&&b.departure.time)||'99'));
+ const stay=act.filter((r)=>r.checkin<=d&&r.checkout>d), inHouse=stay.filter((r)=>r.checkin<d);
+ const shown=new Set(arr.concat(dep).map((r)=>r.id));
  const pend=live().filter((r)=>r.status==='待确认'&&r.checkin>=d);
- const legs=[];live().filter((r)=>r.status!=='已取消').forEach((r)=>{[['来程',r.arrival],['返程',r.departure]].forEach(([k,l])=>{if(l&&l.date===d)legs.push({r,k,l});});});
- legs.sort((a,b)=>(a.l.time||'99').localeCompare(b.l.time||'99'));
- const tasks=[];live().forEach((r)=>(r.tasks||[]).forEach((t,i)=>{if(!t.done&&t.due&&t.due<=d)tasks.push({r,t,i});}));
+ const tasks=[];live().forEach((r)=>{if(shown.has(r.id))return;(r.tasks||[]).forEach((t,i)=>{if(!t.done&&t.due&&t.due<=d)tasks.push({r,t,i});});});
  tasks.sort((a,b)=>(a.t.priority==='重要'?0:1)-(b.t.priority==='重要'?0:1)||a.t.due.localeCompare(b.t.due));
- const isToday=d===today();
- let h=`<h2>${isToday?'今天，安排妥当。':esc(md(d))+' '+wd(d)+' 的安排'}</h2><p class="lede">${esc(d)} ${wd(d)} · 只看已登记的订单，不与 OTA 自动同步</p>
- <div class="daynav"><button type="button" class="sm" data-day="-1">前一天</button><input type="date" id="dayPick" value="${esc(d)}" aria-label="安排日期"><button type="button" class="sm" data-day="1">后一天</button>${isToday?'':'<button type="button" class="sm" data-day="0">回到今天</button>'}</div>
- <div class="grid3"><div class="kpi"><div class="l">预计到店</div><div class="v">${arr.length}<small>间</small></div></div><div class="kpi"><div class="l">预计离店</div><div class="v">${dep.length}<small>间</small></div></div><div class="kpi"><div class="l">当晚在住</div><div class="v">${stay.length}<small>/ 6</small></div></div></div>`;
- h+=`<section class="sec"><div class="sec-h"><h3>到店</h3><span>${arr.length} 间</span></div>${arr.length?'<div class="list">'+arr.map((r)=>rowHTML(r)).join('')+'</div>':'<div class="empty">这一天没有到店的登记</div>'}</section>`;
- if(dep.length)h+=`<section class="sec"><div class="sec-h"><h3>离店</h3><span>${dep.length} 间 · 退房 9:30</span></div><div class="list">${dep.map((r)=>{const o=owe(r);return rowHTML(r,o>0?`<span class="owe">待收 ${yuan(o)}</span>`:'<span class="pill p-out">房费已清</span>');}).join('')}</div></section>`;
- h+=`<section class="sec"><div class="sec-h"><h3>船期与接送</h3><span>来程和返程一起看</span></div>`;
- h+=legs.length?'<div class="list">'+legs.map(({r,k,l})=>`<button type="button" class="row" data-open="${esc(r.id)}"><div class="main"><div class="t">${esc(l.time||'时间待定')} · ${k}<small>${esc(r.name)} · ${esc(r.room)}</small></div><div class="m">${esc(l.port||'港口待补充')} · ${esc(l.ship||'船名待补充')}</div></div><div class="r"><span class="pill ${l.ticket==='已购票'?'p-out':l.ticket==='停航/取消'||l.ticket==='有变动'?'p-bad':'p-pending'}">${esc(l.ticket)}</span>${k==='来程'&&(r.pickup==='需接船'||r.pickup==='已安排')?'<br><span class="pill p-warn">'+esc(r.pickup)+'</span>':''}</div></button>`).join('')+'</div>':'<div class="empty">这一天没有船期安排<br><span style="font-size:12px">在登记里填来程、返程船班后会显示在这里</span></div>';
- h+=`<p class="note">这里只记录客人的出行计划，不代表船班已核实或保证开航。</p></section>`;
- h+=`<section class="sec"><div class="sec-h"><h3>待办事项</h3><span>到期和已过期未完成</span></div>`;
- h+=tasks.length?'<div class="list">'+tasks.map(({r,t,i})=>`<div class="row"><div class="main"><div class="t">${t.priority==='重要'?'<span class="pill p-bad">重要</span> ':''}${esc(t.text)}</div><div class="m">${esc(r.name)} · ${esc(r.room)} · ${t.due<d?'已过期 '+md(t.due):'今天'}</div></div><div class="r"><button type="button" class="sm" data-done="${esc(r.id)}" data-ti="${i}">完成</button></div></div>`).join('')+'</div>':'<div class="empty">没有到期的事项</div>';
- h+=`</section><section class="sec"><div class="sec-h"><h3>六间房，当晚一览</h3><button type="button" class="link" data-tab-go="calendar">查看日历 →</button></div><div class="rooms6">${ROOMS.map(([n])=>{const r=stay.find((x)=>x.room===n);return `<div class="rm${r?' occ':''}"${r?` data-open="${esc(r.id)}" role="button" tabindex="0"`:''}><b>${n}</b><div>${r?esc(r.name)+' · 至 '+md(r.checkout):'空'}</div></div>`;}).join('')}</div></section>`;
+ const isToday=d===today(), dt=new Date(d+'T00:00:00');
+ let h=`<section class="hero"><div class="hero-date"><b>${dt.getMonth()+1}月${dt.getDate()}日</b><span>${wd(d)} · 庙子湖${isToday?' · 今天':''}</span></div>
+ <div class="hero-sum"><span><b>${arr.length}</b>到店</span><span><b>${dep.length}</b>离店</span><span><b>${stay.length}</b>/6 在住</span></div>
+ <div class="daynav"><button type="button" class="sm" data-day="-1" aria-label="前一天">‹ 前一天</button><input type="date" id="dayPick" value="${esc(d)}" aria-label="安排日期"><button type="button" class="sm" data-day="1" aria-label="后一天">后一天 ›</button>${isToday?'':'<button type="button" class="sm" data-day="0">今天</button>'}</div></section>`;
+ h+=`<section class="sec"><div class="sec-h"><h3>到店与接船</h3><span>按船班时间排</span></div>${arr.length?'<div class="list">'+arr.map((r)=>ticketHTML(r,'in',d)).join('')+'</div>':'<div class="empty">这一天没有客人到店</div>'}</section>`;
+ if(dep.length)h+=`<section class="sec"><div class="sec-h"><h3>离店与返程</h3><span>退房 9:30 前</span></div><div class="list">${dep.map((r)=>ticketHTML(r,'out',d)).join('')}</div></section>`;
+ const inNotes=inHouse.filter((r)=>r.notes||(r.tasks||[]).some((t)=>!t.done)||nextOf(r));
+ if(inNotes.length)h+=`<section class="sec"><div class="sec-h"><h3>在住客人 · 注意事项与换房</h3><span>${inNotes.length} 间</span></div><div class="list">${inNotes.map((r)=>`<article class="card mini"><div class="thead"><button type="button" class="tname" data-open="${esc(r.id)}">${esc(r.name)}</button>${plate(r.room)}<span class="tmeta">住到 ${md(r.checkout)}</span></div>${noteHTML(r)}${tasksHTML(r)}${nextHTML(r,d)}</article>`).join('')}</div></section>`;
+ if(tasks.length)h+=`<section class="sec"><div class="sec-h"><h3>其他到期事项</h3><span>含已过期未完成</span></div><div class="list">${tasks.map(({r,t,i})=>`<div class="row"><div class="main"><div class="t">${t.priority==='重要'?'<em class="imp">重要</em>':''}${esc(t.text)}</div><div class="m">${esc(r.name)} · ${esc(r.room)} · ${t.due<d?'已过期 '+md(t.due):'今天'}</div></div><div class="r"><button type="button" class="sm" data-done="${esc(r.id)}" data-ti="${i}">完成</button></div></div>`).join('')}</div></section>`;
+ h+=`<section class="sec"><div class="sec-h"><h3>六间房，当晚</h3><button type="button" class="link" data-tab-go="calendar">房态日历 →</button></div><div class="rooms6">${ROOMS.map(([n,desc])=>{const r=stay.find((x)=>x.room===n);return `<div class="rm${r?' occ':''}"${r?` data-open="${esc(r.id)}" role="button" tabindex="0"`:''}><b>${n}</b><div>${r?esc(r.name)+(r.checkin===d?' · 今天到':'')+' · 至 '+md(r.checkout):'空房'}</div>${r&&r.checkout===addDays(d,1)&&nextOf(r)?`<div class="nx">明天换客${(()=>{const n=nextOf(r);return n.arrival&&n.arrival.date===n.checkin&&n.arrival.time?' · 船 '+esc(n.arrival.time):'';})()}</div>`:''}</div>`;}).join('')}</div></section>`;
  if(pend.length)h+=`<section class="sec"><div class="sec-h"><h3>待确认的预订</h3><span>不占房，确认后改成已预订</span></div><div class="list">${pend.map((r)=>rowHTML(r)).join('')}</div></section>`;
+ h+='<p class="note">船班只记录客人的出行计划，不代表已核实或保证开航。</p>';
  return h;}
 
 /* ---------- 预订台账 ---------- */
@@ -171,6 +187,8 @@ function bindView(){const v=$('view');
  const dp=$('dayPick');if(dp)dp.addEventListener('change',()=>{if(dateOK(dp.value)){dayView=dp.value;render();}});
  v.querySelectorAll('[data-cal]').forEach((el)=>el.addEventListener('click',()=>{const n=Number(el.dataset.cal);calStart=n===0?today():addDays(calStart,n);render();}));
  const cp=$('calPick');if(cp)cp.addEventListener('change',()=>{if(dateOK(cp.value)){calStart=cp.value;render();}});
+ v.querySelectorAll('[data-pick]').forEach((el)=>el.addEventListener('click',()=>{const r=all.find((x)=>x.id===el.dataset.pick);if(!r)return;r.pickup=PICK_NEXT[r.pickup]||'需接船';r.updatedAt=new Date().toISOString();try{save(r);toast('接船：'+r.pickup);}catch(e){toast(e.message);}render();}));
+ v.querySelectorAll('[data-tdone]').forEach((el)=>el.addEventListener('change',()=>{const r=all.find((x)=>x.id===el.dataset.tdone);if(!r)return;const t=r.tasks[Number(el.dataset.ti)];if(!t)return;t.done=el.checked;r.updatedAt=new Date().toISOString();try{save(r);}catch(e){toast(e.message);}render();}));
  v.querySelectorAll('[data-done]').forEach((el)=>el.addEventListener('click',()=>{const r=all.find((x)=>x.id===el.dataset.done);if(!r)return;const t=r.tasks[Number(el.dataset.ti)];if(!t)return;t.done=true;r.updatedAt=new Date().toISOString();try{save(r);toast('事项已完成');}catch(e){toast(e.message);}render();}));
  const fq=$('fq');if(fq){fq.addEventListener('input',()=>{filt.q=fq.value;const pos=fq.selectionStart;render();const n=$('fq');n.focus();try{n.setSelectionRange(pos,pos);}catch(e){}});
   [['fs','status'],['fc','channel'],['fm','month']].forEach(([id,k])=>$(id).addEventListener('change',()=>{filt[k]=$(id).value;render();}));}
@@ -197,7 +215,7 @@ function drawDetail(r){const d=$('detail'),n=nightsOf(r),o=owe(r),c=conflictOf(r
  <dt>整单房费</dt><dd>${r.amount!=null?yuan(cents(r.amount))+' 元':'金额待补充'}${r.nightlyRate!=null&&r.pricingMode==='nightly'?'（每晚 '+yuan(cents(r.nightlyRate))+'）':''}</dd>
  <dt>收款</dt><dd>已收 ${yuan(cents(r.paid))}${r.refund?' · 已退 '+yuan(cents(r.refund)):''}${o!=null?(o>0?` · <span class="owe">待收 ${yuan(o)}</span>`:o<0?` · <span class="owe">多收 ${yuan(-o)}，请核对</span>`:' · 已收齐'):''}</dd>
  ${r.group?`<dt>同行编号</dt><dd>${esc(r.group)}</dd>`:''}${r.origin?`<dt>客源地</dt><dd>${esc(r.origin)}</dd>`:''}
- <dt>接船</dt><dd>${esc(r.pickup)}</dd><dt>来程</dt><dd>${esc(legTxt(r.arrival))}</dd><dt>返程</dt><dd>${esc(legTxt(r.departure))}</dd>
+ ${(()=>{const n=nextOf(r);if(!n)return '';const l=n.arrival&&n.arrival.date===n.checkin?n.arrival:null;return `<dt>下一位</dt><dd>${esc(n.name)} · ${md(n.checkin)} 入住此房 · ${l&&l.time?'来程船 '+esc(l.time):'船班未填'}</dd>`;})()}<dt>接船</dt><dd>${esc(r.pickup)}</dd><dt>来程</dt><dd>${esc(legTxt(r.arrival))}</dd><dt>返程</dt><dd>${esc(legTxt(r.departure))}</dd>
  <dt>备注</dt><dd>${r.notes?esc(r.notes).replace(/\n/g,'<br>'):'暂无'}</dd>
  <dt>事项</dt><dd>${(r.tasks||[]).length?r.tasks.map((t,i)=>`<label class="chk"><input type="checkbox" data-task="${i}"${t.done?' checked':''}> ${t.priority==='重要'?'<b style="color:var(--bad)">重要</b> ':''}${esc(t.text)}${t.due?' · '+md(t.due):''}</label>`).join(''):'暂无'}</dd></dl>
  <label>修改状态<select id="dStatus">${STATUSES.map((s)=>`<option${s===r.status?' selected':''}>${s}</option>`).join('')}</select></label>
@@ -217,8 +235,8 @@ function drawDetail(r){const d=$('detail'),n=nightsOf(r),o=owe(r),c=conflictOf(r
 let ed=null, edDirty=false;
 function openEditor(id){const src=id?all.find((x)=>x.id===id):null;ed=JSON.parse(JSON.stringify(src||blank()));ed._isNew=!src;edDirty=false;edConfirmClose=false;drawEditor();const d=$('editor');if(!d.open)d.showModal();}
 let edConfirmClose=false;
-function legFields(k,l,label){return `<div class="leg"><h4>${label}</h4><div class="field-row"><label>日期<input type="date" data-leg="${k}.date" value="${esc(l.date)}"></label><label>出发时间<input type="time" data-leg="${k}.time" value="${esc(l.time)}"></label></div>
- <div class="field-row"><label>出发港 → 到达港<input data-leg="${k}.port" value="${esc(l.port)}" placeholder="如 沈家门 → 庙子湖"></label><label>船名 / 航次<input data-leg="${k}.ship" value="${esc(l.ship)}" placeholder="可选"></label></div>
+function legFields(k,l,label){const full=k!=='arrival';return `<div class="leg"><h4>${label}</h4><div class="field-row"><label>日期${k==='arrival'?'（默认入住当天）':'（默认退房当天）'}<input type="date" data-leg="${k}.date" value="${esc(l.date)}"></label>${full?`<label>出发时间<input type="time" data-leg="${k}.time" value="${esc(l.time)}"></label>`:`<label>船名 / 航次<input data-leg="${k}.ship" value="${esc(l.ship)}" placeholder="可选"></label>`}</div>
+ ${full?`<div class="field-row"><label>出发港 → 到达港<input data-leg="${k}.port" value="${esc(l.port)}" placeholder="如 庙子湖 → 沈家门"></label><label>船名 / 航次<input data-leg="${k}.ship" value="${esc(l.ship)}" placeholder="可选"></label></div>`:''}
  <label>船票状态<select data-leg="${k}.ticket">${TICKETS.map((t)=>`<option${t===l.ticket?' selected':''}>${t}</option>`).join('')}</select></label></div>`;}
 function drawEditor(){const d=$('editor'),r=ed;
  d.innerHTML=`<form class="dlg" id="edForm" novalidate><div class="dlg-h"><h3>${r._isNew?'新建登记':'编辑登记'}</h3><button type="button" class="sm" id="edClose">关闭</button></div><div class="dlg-b">
@@ -231,11 +249,11 @@ function drawEditor(){const d=$('editor'),r=ed;
  <label>房费合计（元）<input type="number" inputmode="decimal" min="0" step="0.01" id="eAmt" value="${r.amount??''}" placeholder="可直接修改"></label>
  <label>已收款（元）<input type="number" inputmode="decimal" min="0" step="0.01" id="ePaid" value="${r.paid??''}" placeholder="未收填 0"></label></div>
  <div class="calc" id="eCalc"></div>
- <label class="chk"><input type="checkbox" id="ePick"${r.pickup==='需接船'||r.pickup==='已安排'||r.pickup==='已接到'?' checked':''}> 需要码头接船</label>
- <label>备注 / 主要事项<textarea id="eNotes" placeholder="例如：带儿童、行李较多、需要提前联系">${esc(r.notes)}</textarea></label>
- <details${(r.arrival.date||r.departure.date)?' open':''}><summary>船班与接船安排</summary><div class="inner">
+ <div class="field-row"><label>来程船班时间（接船用）<input type="time" data-leg="arrival.time" value="${esc(r.arrival.time)}"></label><label>出发港 → 到达港<input data-leg="arrival.port" value="${esc(r.arrival.port)}" placeholder="如 沈家门 → 庙子湖"></label></div>
+ <label>备注 / 注意事项（今日安排里会显示）<textarea id="eNotes" placeholder="例如：带儿童、行李较多、对海鲜过敏、需要提前联系">${esc(r.notes)}</textarea></label>
+ <details><summary>船票状态、返程船班与接船进度</summary><div class="inner">
   <label>接船进度<select id="ePickup">${PICKUPS.map((p)=>`<option${p===r.pickup?' selected':''}>${p}</option>`).join('')}</select></label>
-  ${legFields('arrival',r.arrival,'来程船班')}${legFields('departure',r.departure,'返程船班')}</div></details>
+  ${legFields('arrival',r.arrival,'来程')}${legFields('departure',r.departure,'返程船班')}</div></details>
  <details><summary>人数、渠道与其他资料</summary><div class="inner">
   <div class="field-row"><label>成人数<input type="number" min="1" max="20" step="1" id="eAd" value="${r.adults}"></label><label>儿童数<input type="number" min="0" max="20" step="1" id="eCh" value="${r.children}"></label></div>
   <div class="field-row"><label>预订渠道<select id="eChan">${CHANNELS.map((c)=>`<option${c===r.channel?' selected':''}>${c}</option>`).join('')}</select></label><label>实际预订日<input type="date" id="eBk" value="${esc(r.bookingDate)}"></label></div>
@@ -254,8 +272,6 @@ function drawEditor(){const d=$('editor'),r=ed;
  $('eRate').addEventListener('input',()=>{ed.pricingMode='nightly';sync();recalc(true);});
  $('eAmt').addEventListener('input',()=>{ed.pricingMode='total';sync();recalc();});
  $('ePaid').addEventListener('input',()=>{sync();recalc();});
- $('ePick').addEventListener('change',()=>{const p=$('ePickup');if($('ePick').checked){if(p.value==='待确认'||p.value==='无需接船')p.value='需接船';}else p.value='无需接船';});
- $('ePickup').addEventListener('change',()=>{$('ePick').checked=['需接船','已安排','已接到'].includes($('ePickup').value);});
  $('eAddTask').addEventListener('click',()=>{sync();ed.tasks.push({text:'',done:false,due:ed.checkin||today(),priority:'普通'});drawTasks();});
  f.addEventListener('submit',(e)=>{e.preventDefault();submitEditor();});
  const close=()=>{if(edDirty){edConfirmClose=true;sync();drawEditor();}else d.close();};
@@ -295,13 +311,16 @@ function submitEditor(){sync();const r=ed,err=(m)=>{$('eErr').textContent=m;};
  if(days(r.checkin,r.checkout)>366)return err('住宿超过 366 晚，请核对日期。');
  if(!r.room)return err('请选择房间。');
  if(r.phone&&!/^[+\d()\s-]{5,40}$/.test(r.phone))return err('电话格式不对，只能有数字、空格和 + - ( )。');
- if(r.bookingDate&&dateOK(r.bookingDate)&&r.bookingDate>r.checkin)return err('预订日期不能晚于入住日期。');
+ if(!dateOK(r.bookingDate)||r.bookingDate>r.checkin)r.bookingDate=r.checkin<today()?r.checkin:today();
+ if(r.bookingDate>r.checkin)r.bookingDate=r.checkin;
  try{['nightlyRate','amount','paid','refund'].forEach((k)=>{r[k]=moneyIn(r[k]);});}catch(e){return err(e.message);}
  if((r.refund||0)>(r.paid||0))return err('已退款不能超过已收款。');
  const cap=(ROOMS.find((x)=>x[0]===r.room)||[])[2];if(cap&&r.adults>cap)return err(r.room+' 按床位最多住 '+cap+' 位成人，请核实或分房登记。');
  const c=conflictOf(r,r.id);if(c)return err(r.room+' 在 '+md(c.checkin)+'–'+md(c.checkout)+' 已被 '+c.name+' 占用，不能保存。');
  r.tasks=(r.tasks||[]).filter((t)=>t.text);
- if(r.pickup==='待确认'&&!$('ePick').checked)r.pickup='待确认';
+ if(!r.arrival.date&&(r.arrival.time||r.arrival.port||r.arrival.ship))r.arrival.date=r.checkin;
+ if(!r.departure.date&&(r.departure.time||r.departure.port||r.departure.ship))r.departure.date=r.checkout;
+ if(r.pickup==='待确认')r.pickup='需接船';
  const now=new Date().toISOString();const isNew=r._isNew;delete r._isNew;if(isNew){r.id=newId();r.createdAt=now;}r.updatedAt=now;
  try{save(r);}catch(e){r._isNew=isNew;return err(e.message);}
  edDirty=false;$('editor').close();toast(isNew?'已保存到本机':'已保存修改');render();}
