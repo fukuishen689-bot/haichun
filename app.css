@@ -409,3 +409,11 @@ button.plain{background:none;border:none;padding:0;text-align:left;color:inherit
 .rm .gs .ok,.rm .gs .warnTxt{font-weight:600}
 .cal td button.wait{background:var(--accent-soft);color:var(--accent)}
 .rm div{color:var(--ink)}
+/* 首页照片 */
+.hero-photo{position:relative;border-radius:18px;overflow:hidden;aspect-ratio:16/10;max-height:240px;width:100%;background:var(--accent-soft)}
+.hero-photo img{width:100%;height:100%;object-fit:cover;object-position:center 75%;display:block}
+.hero-photo::after{content:"";position:absolute;inset:0;background:linear-gradient(to top,rgba(20,26,24,.62) 0%,rgba(20,26,24,.18) 45%,rgba(20,26,24,0) 70%)}
+.hero-photo .hero-date{position:absolute;left:16px;bottom:12px;z-index:1;color:#fff}
+.hero-photo .hero-date b{color:#fff;text-shadow:0 1px 8px rgba(0,0,0,.25)}
+.hero-photo .hero-date span{color:rgba(255,255,255,.9)}
+@media (min-width:700px){.hero-photo{aspect-ratio:auto;height:230px}}

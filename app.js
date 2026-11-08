@@ -130,7 +130,7 @@ function viewToday(){const d=dayView,isToday=d===today(),act=live().filter((r)=>
  const pend=groupOrders(live().filter((r)=>r.status==='待确认'&&r.checkout>d));
  const tasks=[];live().forEach((r)=>{if(shown.has(r.id))return;(r.tasks||[]).forEach((t,i)=>{if(!t.done&&t.due&&t.due<=d)tasks.push({r,t,i});});});
  tasks.sort((a,b)=>(a.t.priority==='重要'?0:1)-(b.t.priority==='重要'?0:1)||a.t.due.localeCompare(b.t.due));
- let h=backupBanner()+`<section class="hero"><div class="hero-date"><b>${cn(d)}</b><span>${wd(d)} · 庙子湖${isToday?' · 今天':''}</span></div>
+ let h=backupBanner()+`<section class="hero"><div class="hero-photo"><img src="hero.jpg" alt="" decoding="async"><div class="hero-date"><b>${cn(d)}</b><span>${wd(d)} · 庙子湖${isToday?' · 今天':''}</span></div></div>
  <div class="hero-sum"><span><b>${arrived}<small>/${arrR.length} 间</small></b>已到店</span><span><b>${depR.length}<small> 间</small></b>当日离店</span><span><b>${stay.length}<small>/6 间</small></b>当晚占房${stay.length?'<i>已住 '+checkedIn+' · 待到 '+(stay.length-checkedIn)+'</i>':''}</span></div>
  <div class="daynav"><button type="button" class="sm" data-day="-1">‹ 前一天</button><input type="date" id="dayPick" value="${esc(d)}" aria-label="安排日期"><button type="button" class="sm" data-day="1">后一天 ›</button>${isToday?'':'<button type="button" class="sm" data-day="0">回到今天</button>'}</div></section>`;
  h+=`<section class="sec"><div class="sec-h"><h3>当日到店</h3><span>${arr.length?arr.length+' 单 · 按船班时间':''}</span></div>${arr.length?'<div class="list">'+arr.map((g)=>orderCard(g,'in',d)).join('')+'</div>':'<div class="empty">这一天没有客人到店</div>'}</section>`;
