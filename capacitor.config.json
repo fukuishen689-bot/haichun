@@ -1,9 +1,0 @@
-{
-  "appId": "com.haichun.zhukebu",
-  "appName": "住客簿",
-  "webDir": "www",
-  "android": { "allowMixedContent": false },
-  "plugins": {
-    "LocalNotifications": { "smallIcon": "ic_stat_notify", "iconColor": "#3e6a62" }
-  }
-}

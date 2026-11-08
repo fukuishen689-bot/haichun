@@ -358,5 +358,3 @@ details{border:none;background:var(--soft);border-radius:12px}
 .roomsel button[aria-pressed="true"]{background:var(--accent-soft);color:var(--accent);border-color:var(--accent)}
 .roomsel button[aria-pressed="true"] span{color:var(--accent)}
 .sec-h h3,.tname,.rm b,.dlg-h h3,h2{font-weight:700}
-.eta{font-size:13px;color:var(--mute)}
-.eta b{color:var(--ink);font-variant-numeric:tabular-nums}

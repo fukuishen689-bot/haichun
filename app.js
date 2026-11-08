@@ -43,7 +43,7 @@ function load(){
   localStorage.setItem(KEY,JSON.stringify(out));return out;}}catch(e){}
  return [];
 }
-function persist(){try{localStorage.setItem(KEY,JSON.stringify(all));if(NATIVE)syncReminders();return true;}catch(e){return false;}}
+function persist(){try{localStorage.setItem(KEY,JSON.stringify(all));return true;}catch(e){return false;}}
 function blank(over){return Object.assign({id:'',name:'',phone:'',room:'',checkin:'',checkout:'',bookingDate:today(),adults:2,children:0,channel:'微信直订',status:'已预订',
  pricingMode:'nightly',nightlyRate:null,amount:null,paid:null,refund:null,reference:'',group:'',origin:'',guestType:'未记录',
  arrival:{date:'',time:'',port:'',ship:'',ticket:'待确认'},departure:{date:'',time:'',port:'',ship:'',ticket:'待确认'},pickup:'需接船',notes:'',tasks:[],deleted:false,deletedAt:'',createdAt:'',updatedAt:''},over||{});}
@@ -59,34 +59,6 @@ function save(rec){const i=all.findIndex((r)=>r.id===rec.id);if(i>=0)all[i]=rec;
 /* ---------- 花费小记 ---------- */
 let exps=[];
 function loadExp(){try{const v=JSON.parse(localStorage.getItem(EKEY)||'[]');return Array.isArray(v)?v:[];}catch(e){return [];}}
-/* ---------- 安卓版：接船提醒 ---------- */
-const CAP=window.Capacitor, NATIVE=!!(CAP&&CAP.isNativePlatform&&CAP.isNativePlatform());
-const PL=NATIVE?(CAP.Plugins||{}):{};
-const FERRY_MIN=100, REMIND_MIN=10; // 东极航线约 1 小时 40 分；到港前 10 分钟提醒
-function hm2m(t){const m=/^(\d{1,2}):(\d{2})/.exec(t||'');return m?Number(m[1])*60+Number(m[2]):null;}
-function m2hm(n){n=((n%1440)+1440)%1440;return String(Math.floor(n/60)).padStart(2,'0')+':'+String(n%60).padStart(2,'0');}
-function etaOf(r){const l=r.arrival;if(!l||!l.time||(l.date&&l.date!==r.checkin))return null;const dep=hm2m(l.time);if(dep==null)return null;return {dep,eta:dep+FERRY_MIN,remind:dep+FERRY_MIN-REMIND_MIN};}
-function nid(id){let h=7;for(const c of String(id))h=(h*31+c.charCodeAt(0))|0;return (Math.abs(h)%2000000000)+1;}
-let syncT=0, remindCount=0;
-function syncReminders(){const LN=PL.LocalNotifications;if(!LN)return;clearTimeout(syncT);syncT=setTimeout(async()=>{try{
- const p=await LN.getPending();if(p&&p.notifications&&p.notifications.length)await LN.cancel({notifications:p.notifications.map((n)=>({id:n.id}))});
- const now=Date.now(),list=[];
- all.filter((r)=>!r.deleted&&r.status==='已预订').forEach((r)=>{const e=etaOf(r);if(!e)return;const at=new Date(r.checkin+'T00:00:00');at.setMinutes(e.remind);const t=at.getTime();if(t<=now||t-now>90*86400000)return;
-  list.push({id:nid(r.id),title:'该去码头接船了',body:r.name+' · '+r.room+'，约 '+m2hm(e.eta)+' 到港（'+(r.arrival.port?r.arrival.port+' ':'')+r.arrival.time+' 开船）',schedule:{at,allowWhileIdle:true},channelId:'pickup'});});
- if(list.length)await LN.schedule({notifications:list});remindCount=list.length;const el=$('remindState');if(el)el.textContent='已排 '+list.length+' 条提醒';
-}catch(e){console.warn('提醒同步失败',e);}},500);}
-async function initNative(){const LN=PL.LocalNotifications;if(!LN)return;
- try{await LN.createChannel({id:'pickup',name:'接船提醒',description:'客人到港前 10 分钟提醒',importance:5,visibility:1,vibration:true});}catch(e){}
- try{const st=await LN.checkPermissions();if(st.display!=='granted')await LN.requestPermissions();}catch(e){}
- syncReminders();}
-async function remindSettings(){const LN=PL.LocalNotifications;if(!LN)return;
- try{const st=await LN.requestPermissions();if(st.display!=='granted'){toast('通知没打开：去系统设置 → 应用 → 住客簿 → 通知');return;}}catch(e){}
- try{if(LN.checkExactNotificationSetting){const x=await LN.checkExactNotificationSetting();if(x.exact_alarm!=='granted'){toast('请打开「闹钟和提醒」权限，提醒才准时');await LN.changeExactNotificationSetting();return;}}}catch(e){}
- toast('通知权限正常');syncReminders();}
-async function nativeShare(name,text){const FS=PL.Filesystem,SH=PL.Share;if(!FS||!SH)return null;
- const w=await FS.writeFile({path:name,data:text,directory:'CACHE',encoding:'utf8'});
- try{await SH.share({title:name,files:[w.uri]});return 'shared';}catch(e){return 'cancel';}}
-
 function persistExp(){try{localStorage.setItem(EKEY,JSON.stringify(exps));return true;}catch(e){return false;}}
 const liveExp=()=>exps.filter((x)=>!x.deleted);
 function expSum(list){return list.reduce((a,x)=>a+(cents(x.amount)||0),0);}
@@ -129,8 +101,7 @@ function arrivedHTML(r,d){if(r.checkin!==d)return '';
   return `<span class="arrived">✓ 已到店${tt}</span>${r.status==='已入住'?`<button type="button" class="link undo" data-unarrive="${esc(r.id)}">撤销</button>`:''}`;}
  return `<button type="button" class="sm arrive" data-arrive="${esc(r.id)}">到店</button>`;}
 function ticketHTML(r,kind,d){const l=kind==='in'?r.arrival:r.departure;const o=owe(r);
- const e=NATIVE&&kind==='in'?etaOf(r):null;
- const route=(routeHTML(l,d)||`<div class="route muted">${kind==='in'?'来程船班未填':'返程船班未填'}</div>`)+(e?`<div class="eta">约 <b>${m2hm(e.eta)}</b> 到港${r.status==='已预订'?' · '+m2hm(e.remind)+' 提醒接船':''}</div>`:'');
+ const route=routeHTML(l,d)||`<div class="route muted">${kind==='in'?'来程船班未填':'返程船班未填'}</div>`;
  const money=kind==='out'?(o>0?`<div class="owe">待收 ${yuan(o)} 元</div>`:''):'';
  return `<article class="ticket t-${kind}${kind==='in'&&(r.status==='已入住'||r.status==='已退房')?' done':''}"><div class="tmain"><div class="thead"><button type="button" class="tname" data-open="${esc(r.id)}">${esc(r.name)}</button>${plate(r.room)}<span class="tmeta">${nightsOf(r)} 晚 · ${r.adults} 大${r.children?' '+r.children+' 小':''}${r.phone?' · '+esc(r.phone):''}</span>${kind==='in'?'<span class="tact">'+arrivedHTML(r,d)+'</span>':''}</div>${route}${noteHTML(r)}${tasksHTML(r)}${money}${nextHTML(r,d)}</div></article>`;}
 function viewToday(){const d=dayView, act=live().filter((r)=>ACTIVE.includes(r.status));
@@ -237,10 +208,8 @@ function viewBackup(){let last=null;try{last=localStorage.getItem(BKEY);}catch(e
  <p class="note">保留整单金额，另列本月间夜和分摊房费。累计收款没有收款日期，不能当作当月现金收入；精斗云还是按微信、支付宝实际收款入账。</p></div>
  <div class="card sec"><div class="sec-h"><h3>回收站</h3><span>${trash.length} 条</span></div>${trash.length?'<div class="list">'+trash.map((r)=>`<div class="row"><div class="main"><div class="t">${esc(r.name)}<small>${esc(r.room)} · ${md(r.checkin)}–${md(r.checkout)}</small></div><div class="m">删除于 ${esc((r.deletedAt||'').slice(0,10))}</div></div><div class="r"><button type="button" class="sm" data-restore="${esc(r.id)}">恢复</button></div></div>`).join('')+'</div>':'<p class="muted" style="font-size:13px;margin:0">删除的登记会先放在这里，可以恢复。</p>'}
  ${trash.length?(pendingPurge?'<div class="confirm" style="margin-top:10px">清空后无法恢复，确定？<button type="button" class="sm danger" id="purgeYes">清空回收站</button><button type="button" class="sm" id="purgeNo">先不清</button></div>':'<div class="actions"><button type="button" class="sm" id="purgeBtn">清空回收站</button></div>'):''}</div>
- ${NATIVE?`<div class="card sec"><div class="sec-h"><h3>接船提醒</h3><span id="remindState">已排 ${remindCount} 条提醒</span></div>
- <p class="muted" style="font-size:13px;margin:0">填了来程船班时间、还没点「到店」的客人，会在开船后 ${FERRY_MIN-REMIND_MIN} 分钟（约到港前 ${REMIND_MIN} 分钟）通知。没网、锁屏也会响。收不到时点下面检查权限，并在系统设置里允许住客簿「自启动」「后台运行」。</p>
- <div class="actions"><button type="button" id="remindBtn">检查通知权限</button></div>`:`<div class="card sec"><div class="sec-h"><h3>离线与安装</h3><span id="swState">${swReady?'离线页面已就绪':'离线页面准备中'}</span></div>
- <p class="muted" style="font-size:13px;margin:0">iPhone：用 Safari 打开，点分享 →「添加到主屏幕」，以后只从桌面图标打开。桌面图标和 Safari 里的数据是分开的两份。</p>`}
+ <div class="card sec"><div class="sec-h"><h3>离线与安装</h3><span id="swState">${swReady?'离线页面已就绪':'离线页面准备中'}</span></div>
+ <p class="muted" style="font-size:13px;margin:0">iPhone：用 Safari 打开，点分享 →「添加到主屏幕」，以后只从桌面图标打开。桌面图标和 Safari 里的数据是分开的两份。</p>
  <div class="actions"><button type="button" class="sm" id="persistBtn">申请保留本机数据</button></div></div>`;
  return h;}
 let pendingPurge=false, swReady=false;
@@ -272,7 +241,7 @@ function bindView(){const v=$('view');
  if($('settleAll'))$('settleAll').addEventListener('click',()=>{const t=new Date().toISOString();liveExp().forEach((x)=>{if(!x.settled){x.settled=true;x.settledAt=x.updatedAt=t;}});persistExp();toast('全部已结算');render();});
  const sm=$('statM');if(sm)sm.addEventListener('change',()=>{statMonth=sm.value;render();});
  if($('bkBtn')){$('bkBtn').addEventListener('click',backup);$('rsBtn').addEventListener('click',()=>$('rsFile').click());$('rsFile').addEventListener('change',restore);
-  $('exBtn').addEventListener('click',()=>exportCSV($('exM').value,$('exMode').value));$('exAll').addEventListener('click',()=>exportCSV('',''));$('exExp').addEventListener('click',()=>exportExp($('exM').value));if($('remindBtn'))$('remindBtn').addEventListener('click',remindSettings);
+  $('exBtn').addEventListener('click',()=>exportCSV($('exM').value,$('exMode').value));$('exAll').addEventListener('click',()=>exportCSV('',''));$('exExp').addEventListener('click',()=>exportExp($('exM').value));
   v.querySelectorAll('[data-restore]').forEach((el)=>el.addEventListener('click',()=>{const r=all.find((x)=>x.id===el.dataset.restore);if(!r)return;const c=conflictOf(r,r.id);if(c){toast(r.room+' 这几天已被 '+c.name+' 占用，先改日期或取消那条');return;}r.deleted=false;r.deletedAt='';r.updatedAt=new Date().toISOString();try{save(r);toast('已恢复');}catch(e){toast(e.message);}render();}));
   if($('purgeBtn'))$('purgeBtn').addEventListener('click',()=>{pendingPurge=true;render();});
   if($('purgeYes'))$('purgeYes').addEventListener('click',()=>{all=all.filter((r)=>!r.deleted);persist();pendingPurge=false;toast('回收站已清空');render();});
@@ -406,8 +375,7 @@ function submitEditor(){sync();const r=ed,err=(m)=>{$('eErr').textContent=m;};
  edDirty=false;$('editor').close();toast(isNew?'已保存到本机':'已保存修改');render();}
 
 /* ---------- 导出 / 备份 ---------- */
-async function shareOrDownload(name,text,type){if(NATIVE){try{const r=await nativeShare(name,text);if(r)return r;}catch(e){toast('导出失败：'+(e.message||e));return 'cancel';}}
- const blob=new Blob([text],{type});
+async function shareOrDownload(name,text,type){const blob=new Blob([text],{type});
  try{const file=new File([blob],name,{type});if(navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file],title:name});return 'shared';}}catch(e){if(e&&e.name==='AbortError')return 'cancel';}
  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},3000);return 'downloaded';}
 function csvCell(v){let s=String(v??'');if(/^[=+\-@\t\r]/.test(s))s="'"+s;return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;}
@@ -445,5 +413,4 @@ const h0=(location.hash||'').slice(1);if(['today','ledger','calendar','stats','b
 setTab(tab);
 function updateChip(){const c=$('offlineChip');c.textContent=navigator.onLine?'本机保存':'离线使用中';c.className='chip'+(navigator.onLine?'':' warn');}
 window.addEventListener('online',updateChip);window.addEventListener('offline',updateChip);updateChip();
-if(NATIVE){window.addEventListener('load',initNative);}
-else if('serviceWorker' in navigator){window.addEventListener('load',()=>{navigator.serviceWorker.register('sw.js').then(()=>navigator.serviceWorker.ready).then(()=>{swReady=true;const s=$('swState');if(s)s.textContent='离线页面已就绪';}).catch(()=>{});});}
+if('serviceWorker' in navigator){window.addEventListener('load',()=>{navigator.serviceWorker.register('sw.js').then(()=>navigator.serviceWorker.ready).then(()=>{swReady=true;const s=$('swState');if(s)s.textContent='离线页面已就绪';}).catch(()=>{});});}
