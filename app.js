@@ -81,7 +81,7 @@ function sumOrder(g){const live_=g.filter((r)=>r.status!=='已取消');const mis
  const amount=live_.reduce((a,r)=>a+(cents(r.amount)||0),0), paid=g.reduce((a,r)=>a+(cents(r.paid)||0),0), refund=g.reduce((a,r)=>a+(cents(r.refund)||0),0);
  const net=paid-refund, n=nightsOf(g[0]);return {rooms:g.length,nights:n,roomNights:n*g.length,amount:missing?null:amount,known:amount,paid,refund,net,owe:missing?null:amount-net,missing};}
 function payState(s,status){if(status==='已取消')return s.net>0?['待退款核对','p-bad']:['已取消','p-cancel'];
- if(s.missing)return ['金额待核对','p-pending'];if(s.owe<0)return ['多收待核对','p-bad'];if(s.net<=0&&s.amount>0)return ['未收','p-warn'];if(s.owe>0)return ['部分已收','p-warn'];return ['已收齐','p-out'];}
+ if(s.missing)return ['金额待核对','p-pending'];if(s.owe<0)return ['多收待核对','p-bad'];if(s.net<=0&&s.amount>0)return ['未收','p-warn'];if(s.owe>0)return ['部分收款','p-warn'];return ['已收齐','p-out'];}
 function pickTxt(r){if(r.pickup==='无需接船')return '无需接船';const l=r.arrival||{};const t=l.date&&l.date!==r.checkin?cn(l.date)+' ':'';
  return (r.pickup==='待确认'?'接船待确认':r.pickup)+' · '+(l.port||'出发港待确认')+' · '+(l.time?t+l.time+' 出发':'时间待确认');}
 
@@ -108,7 +108,7 @@ function nextOf(r){return live().find((x)=>x.id!==r.id&&okey(x)!==okey(r)&&ACTIV
 function nextHTML(g,d){if(g[0].checkout>addDays(d,1))return '';const out=[];g.forEach((r)=>{const n=nextOf(r);if(!n)return;const l=n.arrival&&(!n.arrival.date||n.arrival.date===n.checkin)?n.arrival:null;
  out.push(`<div class="next"><b>${esc(r.room)}</b> ${n.checkin===today()?'本日入住':n.checkin===addDays(d,1)?'次日入住':cn(n.checkin)+'入住'}：<button type="button" class="link" data-open="${esc(n.id)}">${esc(n.name)}</button> · ${l&&l.time?'船 <b>'+esc(l.time)+'</b>'+(l.port?' '+esc(l.port):''):'船班时间待确认'}</div>`);});return out.join('');}
 function tasksHTML(r){const ts=(r.tasks||[]);if(!ts.length)return '';return `<ul class="todo">${ts.map((t,i)=>`<li><label class="chk"><input type="checkbox" data-tdone="${esc(r.id)}" data-ti="${i}"${t.done?' checked':''}><span class="${t.done?'done':''}">${t.priority==='重要'?'<em class="imp">重要</em>':''}${esc(t.text)}${t.due?'<small> · '+cn(t.due)+'</small>':''}</span></label></li>`).join('')}</ul>`;}
-function noteHTML(r){return r.notes?`<p class="tnote">${esc(r.notes).replace(/\n/g,'<br>')}</p>`:'';}
+function noteHTML(r){return r.notes?`<p class="tnote plain"><span>备注</span>${esc(r.notes).replace(/\n/g,'<br>')}</p>`:'';}
 function routeIn(r){if(r.pickup==='无需接船')return '<div class="route muted">无需接船</div>';const l=r.arrival||{};const other=l.date&&l.date!==r.checkin;
  return `<div class="route">${esc(l.port||'出发港待确认')} ${l.time?'<b>'+esc(l.time)+'</b> 出发':'<span class="warnTxt">时间待确认</span>'}${other?' <span class="warnTxt">（船班日期 '+cn(l.date)+'，请核对）</span>':''}${l.ship?' · '+esc(l.ship):''}${r.pickup==='待确认'?' · 接船待确认':''}</div>`;}
 function routeOut(r){const l=r.departure||{};if(!(l.time||l.port||l.ship))return '<div class="route muted">返程船班未填</div>';return `<div class="route">${esc(l.port||'')} ${l.time?'<b>'+esc(l.time)+'</b>':''}${l.ship?' · '+esc(l.ship):''}</div>`;}
@@ -185,19 +185,24 @@ function viewToday(){const d=dayView,isToday=d===today(),act=live().filter((r)=>
  const departed=depR.filter((r)=>r.status==='已退房').length;
  const arrived=arrR.filter((r)=>r.status!=='已预订').length, checkedIn=stay.filter((r)=>r.status==='已入住').length;
  const shown=new Set(arrR.concat(depR).map((r)=>r.id));
+ const waitArr=arrR.filter((r)=>r.status==='已预订').length, waitDep=depR.filter((r)=>r.status!=='已退房').length;
+ const leaving=depR.filter((r)=>r.status==='已入住').length, curIn=inNow+leaving;
+ let svcPend=0,svcDone=0;groupOrders(act.filter((r)=>r.checkin<=d&&r.checkout>=d)).forEach((g)=>{svcList(g[0]).forEach((t)=>{if(!t.doneAt)svcPend++;else if(localDay(t.doneAt)===d)svcDone++;});});
  const pend=groupOrders(live().filter((r)=>r.status==='待确认'&&r.checkout>d));
  const tasks=[];live().forEach((r)=>{if(shown.has(r.id))return;(r.tasks||[]).forEach((t,i)=>{if(!t.done&&t.due&&t.due<=d)tasks.push({r,t,i});});});
  tasks.sort((a,b)=>(a.t.priority==='重要'?0:1)-(b.t.priority==='重要'?0:1)||a.t.due.localeCompare(b.t.due));
- let h=`<section class="hero"><div class="hero-photo"><img src="hero.jpg" alt="" decoding="async"><div class="hero-date"><b>${cn(d)}</b><span>${wd(d)} · 庙子湖${isToday?' · 今天':''}</span></div></div>
- <div class="hero-sum"><span><b>${arrived}<small>/${arrR.length} 间</small></b>已到店</span><span><b>${departed}<small>/${depR.length} 间</small></b>已离店</span><span><b>${stay.length}<small>/6 间</small></b>当晚占房${stay.length?'<i>已住 '+checkedIn+' · 待到 '+(stay.length-checkedIn)+'</i>':''}</span></div>
+ let h=`<section class="hero"><div class="hero-photo slim"><img src="hero.jpg" alt="" decoding="async"><div class="hero-date"><b>${cn(d)}</b><span>${wd(d)} · 庙子湖${isToday?' · 今天':''}</span></div></div>
+ <div class="hero-sum todo"><button type="button" data-jump="secArr" class="${waitArr?'hot':''}"><b>${waitArr}<small> 间</small></b>待到店<i>已到店 ${arrived}/${arrR.length}</i></button>
+ <button type="button" data-jump="secDep" class="${waitDep?'hot':''}"><b>${waitDep}<small> 间</small></b>待离店<i>已离店 ${departed}/${depR.length}</i></button>
+ <button type="button" data-jump="secHouse" class="${svcPend?'hot':''}"><b>${svcPend}<small> 项</small></b>服务待办<i>${isToday||d<today()?'已完成 '+svcDone+' 项':'—'}</i></button></div>
  <div class="daynav"><button type="button" class="sm" data-day="-1">‹ 前一天</button><input type="date" id="dayPick" value="${esc(d)}" aria-label="安排日期"><button type="button" class="sm" data-day="1">后一天 ›</button>${isToday?'':'<button type="button" class="sm" data-day="0">回到今天</button>'}</div></section>`;
- h+=`<section class="sec"><div class="sec-h"><h3>当日到店</h3><span>${arr.length?arr.length+' 单 · 按船班时间':''}</span></div>${arr.length?'<div class="list">'+arr.map((g)=>orderCard(g,'in',d)).join('')+'</div>':'<div class="empty">这一天没有客人到店</div>'}</section>`;
- if(dep.length)h+=`<section class="sec"><div class="sec-h"><h3>当日离店</h3><span>${dep.length} 单 · 退房 9:30 前</span></div><div class="list">${dep.map((g)=>orderCard(g,'out',d)).join('')}</div></section>`;
- if(inHouse.length)h+=`<section class="sec"><div class="sec-h"><h3>在住客人</h3><span>在住 ${inNow} 间</span></div><div class="list">${inHouse.map((g)=>houseCard(g,d)).join('')}</div></section>`;
+ h+=`<section class="sec" id="secArr"><div class="sec-h"><h3>当日到店</h3><span>${arr.length?arr.length+' 单 · 按船班时间':''}</span></div>${arr.length?'<div class="list">'+arr.map((g)=>orderCard(g,'in',d)).join('')+'</div>':'<div class="empty">这一天没有客人到店</div>'}</section>`;
+ if(dep.length)h+=`<section class="sec" id="secDep"><div class="sec-h"><h3>当日离店</h3><span>${dep.length} 单 · 退房 9:30 前</span></div><div class="list">${dep.map((g)=>orderCard(g,'out',d)).join('')}</div></section>`;
+ if(inHouse.length||curIn)h+=`<section class="sec" id="secHouse"><div class="sec-h"><h3>在住客人</h3><span>当前在住 ${curIn} 间${leaving?'（含待离店 '+leaving+' 间）':''}</span></div>${inHouse.length?'':'<div class="empty">在住客人都在「当日离店」里</div>'}<div class="list">${inHouse.map((g)=>houseCard(g,d)).join('')}</div></section>`;
  if(tasks.length)h+=`<section class="sec"><div class="sec-h"><h3>其他到期事项</h3><span>含过期未完成</span></div><div class="list">${tasks.map(({r,t,i})=>`<div class="row"><div class="main"><div class="t">${t.priority==='重要'?'<em class="imp">重要</em>':''}${esc(t.text)}</div><div class="m">${esc(r.name)} · ${esc(r.room)} · ${t.due<d?'已过期 '+cn(t.due):'当日'}</div></div><div class="r"><button type="button" class="sm" data-done="${esc(r.id)}" data-ti="${i}">完成</button></div></div>`).join('')}</div></section>`;
  if(pend.length)h+=`<section class="sec"><div class="sec-h"><h3>待确认的预订</h3><span>不占房，确认后改成已预订</span></div><div class="list">${pend.map((g)=>ledgerRow(g)).join('')}</div></section>`;
- h+=`<section class="sec"><div class="sec-h"><h3>六间房 · 当晚</h3><button type="button" class="link" data-tab-go="calendar">房态日历 →</button></div><div class="rooms6">${ROOMS.map(([n])=>{const r=stay.find((x)=>x.room===n);
-  if(!r)return `<div class="rm"><b>${n}</b><div class="gs">空房</div></div>`;
+ h+=`<section class="sec"><div class="sec-h"><h3>当晚预订房态</h3><span class="muted small">已预订 ${stay.length}/6 间 · 已到店 ${checkedIn}</span></div><div class="rooms6">${ROOMS.map(([n])=>{const r=stay.find((x)=>x.room===n);
+  if(!r)return `<div class="rm"><b>${n}</b><div class="gs">未预订</div></div>`;
   const st=r.status==='已入住'?'<span class="ok">已入住</span>':`<span>${r.checkin===today()?'本日入住':cn(r.checkin)+'入住'}</span><span class="warnTxt">待到店</span>`;
   const nx=r.checkout===addDays(d,1)?nextOf(r):null;const svt=svcPendTag(r);
   return `<div class="rm occ${r.status==='已入住'?'':' wait'}" data-open="${esc(r.id)}" role="button" tabindex="0"><b>${n}</b><div class="gn">${esc(r.name)}</div><div class="gs">${st}<span>${cn(r.checkout)}离店</span></div>${svt?`<div class="svtag">${svt}</div>`:''}${nx?`<div class="nx">次日入住${nx.arrival&&nx.arrival.time?' · 船 '+esc(nx.arrival.time):''}</div>`:''}</div>`;}).join('')}</div></section>`;
@@ -209,7 +214,7 @@ const liveExp=()=>exps.filter((x)=>!x.deleted);
 function expSum(list){return list.reduce((a,x)=>a+(cents(x.amount)||0),0);}
 function expRow(x,withDate){return `<div class="row exp${x.settled?' settled':''}"><button type="button" class="main plain" data-expedit="${esc(x.id)}"><div class="t">${esc(x.purpose)}<small>${withDate?cn(x.date)+' · ':''}${esc(x.category)}</small></div><div class="m">${esc(x.pay)}${x.payer&&x.payer!=='自己'?' · '+esc(x.payer)+'垫付':''}${x.room?' · '+esc(x.room):''}${x.note?' · '+esc(x.note):''} · ${x.settled?'已结算':'待结算'}</div></button><div class="r"><b class="amt">${yuan(cents(x.amount))}</b></div></div>`;}
 function expForm(x){const v=x||{category:EXP_CATS[0],pay:EXP_PAY[0],payer:'自己',room:'',note:'',purpose:'',amount:''};
- return `<form class="card expform" id="expForm" autocomplete="off"><div class="sec-h" style="margin:0"><h3>${x?'修改这笔花费':'记一笔'}</h3>${x?`<span>${cn(x.date)}</span>`:''}</div>
+ return `<form class="card expform" id="expForm" autocomplete="off"><div class="sec-h" style="margin:0"><h3>${x?'修改这笔支出':'新增支出'}</h3>${x?`<span>${cn(x.date)}</span>`:''}</div>
  <div class="field-row"><label>花费金额（元） <b>*</b><input id="xAmt" inputmode="decimal" value="${esc(v.amount??'')}" placeholder="如 36.5"></label><label>用途 <b>*</b><input id="xPur" value="${esc(v.purpose)}" placeholder="如 买鸡蛋、修水龙头"></label></div>
  <div class="field-row"><label>类别<select id="xCat">${[...new Set(EXP_CATS.concat([v.category]))].map((c)=>`<option${c===v.category?' selected':''}>${esc(c)}</option>`).join('')}</select></label><label>付款方式<select id="xPay">${EXP_PAY.map((c)=>`<option${c===v.pay?' selected':''}>${c}</option>`).join('')}</select></label></div>
  <div class="field-row"><label>谁垫付<input id="xWho" value="${esc(v.payer||'自己')}" placeholder="自己 / 合伙人姓名"></label><label>关联房间（可选）<select id="xRoom"><option value="">不关联</option>${ROOM_NAMES.map((n)=>`<option${n===v.room?' selected':''}>${n}</option>`).join('')}</select></label></div>
@@ -217,9 +222,9 @@ function expForm(x){const v=x||{category:EXP_CATS[0],pay:EXP_PAY[0],payer:'自�
  ${x?`<label class="chk"><input type="checkbox" id="xSettled"${x.settled?' checked':''}> 已结算${x.settled&&x.settledAt?'（'+cn(x.settledAt.slice(0,10))+'）':''}</label>`:''}
  <div class="actions">${x?(expDel===x.id?`<span class="confirm">删除这笔？<button type="button" class="sm danger" id="xDelYes">删除</button><button type="button" class="sm" id="xDelNo">保留</button></span>`:'<button type="button" class="sm" id="xDel">删除</button>'):''}<span style="flex:1"></span><button type="button" id="xCancel">取消</button><button type="submit" class="pri">${x?'保存修改':'记下'}</button></div></form>`;}
 function expSection(d){const dx=liveExp().filter((x)=>x.date===d).sort((a,b)=>(a.createdAt||'').localeCompare(b.createdAt||''));const ex=expEdit?exps.find((x)=>x.id===expEdit):null;
- return `<section class="sec" id="expSec"><div class="sec-h"><h3>当日花费</h3><span>${dx.length?dx.length+' 笔 · 合计 <b class="ink">'+yuan(expSum(dx))+' 元</b>':'还没有记录'}</span></div>
+ return `<section class="sec" id="expSec"><div class="sec-h"><h3>当日支出</h3><span>${dx.length?dx.length+' 笔 · 合计 <b class="ink">'+yuan(expSum(dx))+' 元</b>':'还没有记录'}</span></div>
  ${dx.length?'<div class="list">'+dx.map((x)=>expRow(x)).join('')+'</div>':''}
- ${ex||expOpen?expForm(ex):'<div class="actions"><button type="button" class="pri" id="expNew">记一笔</button></div>'}</section>`;}
+ ${ex||expOpen?expForm(ex):'<div class="actions"><button type="button" class="pri" id="expNew">新增支出</button></div>'}</section>`;}
 
 function pageHead(t,pos){return `<div class="page-head"><img src="hero.jpg" alt="" decoding="async" style="object-position:${pos}"><h2>${t}</h2></div>`;}
 /* ---------- 预订台账 ---------- */
@@ -239,7 +244,7 @@ function viewLedger(){const rows=filtered(),months=[...new Set(live().map((r)=>r
  <select id="fc" aria-label="渠道"><option value="">全部渠道</option>${CHANNELS.map((s)=>`<option${filt.channel===s?' selected':''}>${s}</option>`).join('')}</select>
  <select id="fm" aria-label="入住月份"><option value="">全部月份</option>${months.map((m)=>`<option value="${m}"${filt.month===m?' selected':''}>${Number(m.slice(5))}月入住（${m.slice(0,4)}）</option>`).join('')}</select></div>
  <p class="muted small" style="margin:0 0 8px">当前 ${orders.length} 单 · ${rows.length} 间房记录</p>`;
- if(!orders.length)return h+(live().length?'<div class="empty"><b>没有符合条件的登记</b>换个搜索词或筛选条件。</div>':'<div class="empty"><b>还没有登记</b>微信、电话、到店的预订都记在这里。<div class="actions" style="justify-content:center"><button type="button" class="pri" data-new>新建第一条登记</button></div></div>');
+ if(!orders.length)return h+(live().length?'<div class="empty"><b>没有符合条件的登记</b>换个搜索词或筛选条件。</div>':'<div class="empty"><b>还没有登记</b>微信、电话、到店的预订都记在这里。<div class="actions" style="justify-content:center"><button type="button" class="pri" data-new>新增第一条预订</button></div></div>');
  return h+'<div class="list">'+orders.map((g)=>ledgerRow(g)).join('')+'</div>';}
 
 /* ---------- 房态日历 ---------- */
@@ -280,7 +285,7 @@ function advHTML(s,e){const mx=liveExp().filter((x)=>x.date>=s&&x.date<e),pendAl
  const cat=[...new Set(EXP_CATS.concat(mx.map((x)=>x.category)))].map((c)=>({c,v:expSum(mx.filter((x)=>x.category===c))})).filter((x)=>x.v);const maxV=Math.max(1,...cat.map((x)=>x.v));
  const who=[...new Set(pendAll.map((x)=>x.payer||'自己'))].map((w)=>({w,v:expSum(pendAll.filter((x)=>(x.payer||'自己')===w))}));
  const ask=(list,lbl)=>`<div class="confirm block">将把 <b>${list.length} 笔、${yuan(expSum(list))} 元</b>标记为已结算，日期范围 <b>${rangeTxt(list)}</b>（${lbl}）。<div class="actions"><button type="button" class="sm danger" id="settleYes">确认结算</button><button type="button" class="sm" id="settleNo">取消</button></div></div>`;
- return `<section class="sec"><div class="sec-h"><h3>垫付总计</h3><span>来自「当日花费」</span></div>
+ return `<section class="sec"><div class="sec-h"><h3>垫付总计</h3><span>来自「当日支出」</span></div>
  <div class="grid3"><div class="kpi"><div class="l">本月花费</div><div class="v">${yuan(expSum(mx))}<small>元</small></div><div class="s">${mx.length} 笔</div></div>
  <div class="kpi"><div class="l">本月待结算</div><div class="v">${yuan(expSum(mPend))}<small>元</small></div><div class="s">${mPend.length} 笔未结</div></div>
  <div class="kpi"><div class="l">全部待结算</div><div class="v">${yuan(expSum(pendAll))}<small>元</small></div><div class="s">${who.length?who.map((x)=>esc(x.w)+' '+yuan(x.v)).join(' · '):'全部已结清'}</div></div></div>
@@ -294,7 +299,7 @@ function advHTML(s,e){const mx=liveExp().filter((x)=>x.date>=s&&x.date<e),pendAl
 function viewBackup(){const last=lastBackup();const dd=last?Math.floor((Date.now()-Date.parse(last))/864e5):null;
  const trash=all.filter((r)=>r.deleted).sort((a,b)=>(b.deletedAt||'').localeCompare(a.deletedAt||''));
  const months=[...new Set(live().map((r)=>r.checkin.slice(0,7)).concat([today().slice(0,7)]))].sort().reverse();
- return `<h2>备份与导出</h2><p class="lede"><b class="ink">仅保存在这台手机里，没有和其他手机、电脑同步。</b>换手机、清理浏览器数据前一定要先备份。</p>
+ return `<h2>备份与导出</h2><p class="lede"><b class="ink">仅保存在当前浏览器，未开启跨设备同步。</b>换手机、清理浏览器数据前一定要先备份。</p>
  <div class="card"><div class="sec-h"><h3>完整备份</h3><span class="${!last||dd>=BACKUP_DAYS?'owe':''}">${last?'上次备份 '+cn(last.slice(0,10))+(dd>=BACKUP_DAYS?'，已 '+dd+' 天':''):(all.length?'还没备份过':'')}</span></div>
  <p class="muted small" style="margin:0">建议每周备份一次，存到微信文件传输助手或网盘。备份含客人电话，只存在自己的设备里。换手机时在新手机上「导入备份」恢复。</p>
  <div class="actions"><button type="button" class="pri" id="bkBtn">下载完整备份</button><button type="button" id="rsBtn">导入备份</button><input type="file" id="rsFile" accept=".json,application/json" hidden></div></div>
@@ -342,6 +347,7 @@ function bindView(){const v=$('view');
  v.querySelectorAll('[data-svcundo]').forEach((el)=>el.addEventListener('click',()=>{const tid=el.dataset.tid;if(svcUpdate(el.dataset.svcundo,(L)=>{const t=L.find((x)=>x.id===tid);if(!t)return false;t.doneAt='';}))toast('已撤销完成');render();}));
  v.querySelectorAll('[data-insp]').forEach((el)=>el.addEventListener('click',()=>{const id=el.dataset.insp;let rm='';if(tx(()=>{const x=all.find((y)=>y.id===id);if(!x)return false;rm=x.room;x.inspectedAt=nowISO();x.updatedAt=x.inspectedAt;}))toast(rm+' 已查房');render();}));
  v.querySelectorAll('[data-uninsp]').forEach((el)=>el.addEventListener('click',()=>{const id=el.dataset.uninsp;if(tx(()=>{const x=all.find((y)=>y.id===id);if(!x)return false;x.inspectedAt='';x.updatedAt=nowISO();}))toast('已撤销查房');render();}));
+ v.querySelectorAll('[data-jump]').forEach((el)=>el.addEventListener('click',()=>{const t=$(el.dataset.jump);if(t)t.scrollIntoView({behavior:'smooth',block:'start'});}));
  v.querySelectorAll('[data-expand]').forEach((el)=>{const go=()=>{expanded.add(el.dataset.expand);render();};el.addEventListener('click',go);el.addEventListener('keydown',(e)=>{if(e.key==='Enter')go();});});
  v.querySelectorAll('[data-collapse]').forEach((el)=>el.addEventListener('click',()=>{expanded.delete(el.dataset.collapse);render();}));
  v.querySelectorAll('[data-paidleave]').forEach((el)=>el.addEventListener('click',()=>{const ids=el.dataset.paidleave;let name='',amt=0;
@@ -413,7 +419,7 @@ function drawDetail(id){const d=$('detail'),r0=all.find((x)=>x.id===id);if(!r0){
  <dt>事项</dt><dd>${(r.tasks||[]).length?r.tasks.map((t,i)=>`<label class="chk"><input type="checkbox" data-task="${i}"${t.done?' checked':''}> ${t.priority==='重要'?'<b style="color:var(--bad)">重要</b> ':''}${esc(t.text)}${t.due?' · '+cn(t.due):''}</label>`).join(''):'暂无'}</dd></dl>
  ${r0.deleted?'':`<label>修改整单状态<select id="dStatus">${STATUSES.map((x)=>`<option${x===r.status?' selected':''}>${x}</option>`).join('')}</select></label>`}
  </div><div class="dlg-f">${r0.deleted?'':(detailConfirm?`<span class="confirm">整单${g.length>1?'（'+g.length+' 间）':''}移入回收站？之后可以恢复。<button type="button" class="sm danger" id="dDelYes">移入回收站</button><button type="button" class="sm" id="dDelNo">保留</button></span>`:`<button type="button" class="sm" id="dDel">删除</button>`)+
- (s.owe>0?'<button type="button" class="sm" id="dPaid">尾款已收齐</button>':'')+'<button type="button" class="pri" id="dEdit">编辑登记</button>'}</div></div>`;
+ (s.owe>0?'<button type="button" class="sm" id="dPaid">尾款已收齐</button>':'')+'<button type="button" class="pri" id="dEdit">编辑预订</button>'}</div></div>`;
  d.querySelector('[data-x]').onclick=()=>d.close();
  const gids=g.map((x)=>x.id).join(',');
  d.querySelectorAll('[data-task]').forEach((el)=>el.onchange=()=>{const i=Number(el.dataset.task),val=el.checked;tx(()=>{const x=all.find((y)=>y.id===r.id);if(!x||!x.tasks[i])return false;x.tasks[i].done=val;x.updatedAt=nowISO();});drawDetail(id);render();});
@@ -440,7 +446,7 @@ function openEditor(id){const src=id?all.find((x)=>x.id===id):null;const g=src?o
  SHARED.forEach((k)=>{ed[k]=b[k];});
  edDirty=false;edConfirmClose=false;edShipNote='';drawEditor();const d=$('editor');if(!d.open)d.showModal();}
 function drawEditor(){const d=$('editor'),r=ed;
- d.innerHTML=`<form class="dlg" id="edForm" novalidate><div class="dlg-h"><h3>${r._isNew?'新建登记':'编辑登记'}</h3><button type="button" class="sm" id="edClose">关闭</button></div><div class="dlg-b">
+ d.innerHTML=`<form class="dlg" id="edForm" novalidate><div class="dlg-h"><h3>${r._isNew?'新增预订':'编辑预订'}</h3><button type="button" class="sm" id="edClose">关闭</button></div><div class="dlg-b">
  <div class="field-row"><label>客人称呼 <b>*</b><input id="eName" value="${esc(r.name)}" placeholder="怎样称呼客人" autocomplete="off"></label><label>联系电话<input id="ePhone" type="tel" inputmode="numeric" pattern="1[0-9]{10}" oninput="this.value=this.value.replace(/\\D/g,'').slice(0,11)" value="${esc(r.phone)}" placeholder="11 位手机号" autocomplete="off"></label></div>
  <div class="field-row"><label>入住日期 <b>*</b><input type="date" id="eIn" value="${esc(r.checkin)}"></label><label>离店日期 <b>*</b><input type="date" id="eOut" value="${esc(r.checkout)}"></label></div>
  <div><div class="flabel">选择房间 <b>*</b><span>可多选，一单多间</span></div><div class="roomsel" id="eRooms"></div></div>
@@ -469,7 +475,7 @@ function drawEditor(){const d=$('editor'),r=ed;
   ${r._isNew?'':`<label>订单状态<select id="eStatus">${STATUSES.map((x)=>`<option${x===r.status?' selected':''}>${x}</option>`).join('')}</select></label>`}
  </div></details>
  <details${(r.tasks||[]).length?' open':''}><summary>事项（需要逐项跟进时添加）</summary><div class="inner" id="eTasks"></div><div class="actions"><button type="button" class="sm" id="eAddTask">添加事项</button></div></details>
- </div><div class="dlg-f"><p class="err" id="eErr" role="alert"></p>${edConfirmClose?'<span class="confirm">还没保存，放弃本次修改？<button type="button" class="sm danger" id="edDiscard">放弃</button><button type="button" class="sm" id="edKeep">继续编辑</button></span>':'<button type="button" id="edCancel">取消</button><button type="submit" class="pri">保存登记</button>'}</div></form>`;
+ </div><div class="dlg-f"><p class="err" id="eErr" role="alert"></p>${edConfirmClose?'<span class="confirm">还没保存，放弃本次修改？<button type="button" class="sm danger" id="edDiscard">放弃</button><button type="button" class="sm" id="edKeep">继续编辑</button></span>':'<button type="button" id="edCancel">取消</button><button type="submit" class="pri">保存预订</button>'}</div></form>`;
  drawRooms();drawRoomRows();drawTasks();recalc();
  const f=$('edForm');
  f.addEventListener('input',()=>{edDirty=true;$('eErr').textContent='';});
@@ -561,7 +567,7 @@ function submitEditor(){sync();const r=ed,err=(m)=>{$('eErr').textContent=m;$('e
    rec.arrival=Object.assign({},arrival);rec.departure=Object.assign({},departure);rec.tasks=i===0?tasks.map((y)=>Object.assign({},y)):[];rec.deleted=false;rec.deletedAt='';rec.updatedAt=t;});
   r._ids.forEach((id)=>{if(!keep.has(id)){const old=all.find((y)=>y.id===id);if(old){old.deleted=true;old.deletedAt=t;old.updatedAt=t;}}});});
  if(!ok)return err(FULL);
- edDirty=false;$('editor').close();toast(isNew?'已保存到本机'+(multi?'（'+rooms.length+' 间）':''):'已保存修改');render();}
+ edDirty=false;$('editor').close();toast(isNew?'预订已保存'+(multi?'（'+rooms.length+' 间）':''):'已保存修改');render();}
 
 /* ---------- 导出 / 备份 ---------- */
 async function shareOrDownload(name,text,type){const blob=new Blob([text],{type});

@@ -548,3 +548,17 @@ fieldset.pick legend{color:var(--accent)}
 .svcpick .chk{font-size:15px;font-weight:600}
 .svcpick input[type=text],.svcpick #svcCText{background:var(--panel)}
 .addsvc{justify-self:start;margin-top:8px}
+/* v6：首页待办优先 */
+.hero-photo.slim{aspect-ratio:auto;height:104px;max-height:none;border-radius:16px}
+.hero-photo.slim img{object-position:center 58%}
+.hero-photo.slim .hero-date b{font-size:26px}
+.hero-sum.todo{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.hero-sum.todo button{display:flex;flex-direction:column;align-items:flex-start;text-align:left;background:var(--panel);border-radius:14px;padding:11px 12px;min-height:44px;font-size:14px;font-weight:600;color:var(--ink);border:1.5px solid transparent;gap:1px}
+.hero-sum.todo button b{font-size:26px;font-weight:800;line-height:1.1;color:var(--mute)}
+.hero-sum.todo button b small{font-size:13px;color:var(--mute)}
+.hero-sum.todo button i{font-style:normal;font-size:12px;font-weight:400;color:var(--mute);margin-top:2px;line-height:1.35}
+.hero-sum.todo button.hot{border-color:var(--sand-soft);background:var(--sand-soft)}
+.hero-sum.todo button.hot b{color:var(--sand)}
+.sec{scroll-margin-top:118px}
+.tnote.plain{background:none;padding:0;font-size:14px;color:var(--ink);margin:0}
+.tnote.plain span{color:var(--mute);margin-right:6px;font-size:13px}
