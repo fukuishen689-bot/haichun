@@ -133,7 +133,7 @@ function orderCard(g,kind,d){const r=g[0],k=okey(r),s=sumOrder(g),done=kind==='i
  const ask=leaveAsk===k&&kind==='out'&&!left?`<div class="confirm block">还有 <b>待收 ¥${yuan(s.owe)}</b>。离店后仍按欠款提醒，不会自动记为收齐。<div class="actions"><button type="button" class="sm pri" data-paidleave="${esc(g.map((x)=>x.id).join(','))}">已收款</button><button type="button" class="sm danger" data-leave="${esc(g.map((x)=>x.id).join(','))}" data-force="1">仍然离店</button><button type="button" class="sm" data-leaveno>取消</button></div></div>`:'';
  return `<article class="${cls}"${kind==='out'?' data-depcard="'+esc(k)+'"':''}><div class="thead"><button type="button" class="tname" data-open="${esc(r.id)}">${esc(r.name)}</button>${plates(g)}${rangeTag(r)}<span class="tact">${kind==='in'?arriveCtl(g,d):leaveCtl(g,d)}</span></div>
  <div class="tmeta">${s.nights} 晚${g.length>1?' · '+g.length+' 间':''} · ${adults} 位成人${kids?' '+kids+' 位儿童':''}${r.phone?' · '+esc(r.phone):''}</div>
- ${kind==='in'?routeIn(r)+inspHTML(g):depTimeHTML(r)}${noteHTML(r)}${tasksHTML(r)}${money}${ask}${kind==='out'&&svcList(r).some((t)=>!t.doneAt)?svcHTML(g,d):''}${kind==='in'?'':nextHTML(g,d)}${(done||left)?`<button type="button" class="link fold" data-collapse="${esc(k)}">收起</button>`:''}</article>`;}
+ ${kind==='in'?routeIn(r)+inspHTML(g):depTimeHTML(r)}${noteHTML(r)}${tasksHTML(r)}${money}${ask}${kind==='out'&&svcList(r).some((t)=>!t.doneAt)?svcHTML(g,d):''}${(done||left)?`<button type="button" class="link fold" data-collapse="${esc(k)}">收起</button>`:''}</article>`;}
 let depEdit='';
 /* 离店只在离店当天（或之后补记）可点：卡片在「当日离店」里，且离店日期不晚于今天 */
 function leaveCtl(g,d){const ids=g.map((x)=>x.id).join(',');const r=g[0];
