@@ -130,7 +130,7 @@ function viewToday(){const d=dayView,isToday=d===today(),act=live().filter((r)=>
  const pend=groupOrders(live().filter((r)=>r.status==='待确认'&&r.checkout>d));
  const tasks=[];live().forEach((r)=>{if(shown.has(r.id))return;(r.tasks||[]).forEach((t,i)=>{if(!t.done&&t.due&&t.due<=d)tasks.push({r,t,i});});});
  tasks.sort((a,b)=>(a.t.priority==='重要'?0:1)-(b.t.priority==='重要'?0:1)||a.t.due.localeCompare(b.t.due));
- let h=backupBanner()+`<section class="hero"><div class="hero-photo"><img src="hero.jpg" alt="" decoding="async"><div class="hero-date"><b>${cn(d)}</b><span>${wd(d)} · 庙子湖${isToday?' · 今天':''}</span></div></div>
+ let h=`<section class="hero"><div class="hero-photo"><img src="hero.jpg" alt="" decoding="async"><div class="hero-date"><b>${cn(d)}</b><span>${wd(d)} · 庙子湖${isToday?' · 今天':''}</span></div></div>
  <div class="hero-sum"><span><b>${arrived}<small>/${arrR.length} 间</small></b>已到店</span><span><b>${depR.length}<small> 间</small></b>当日离店</span><span><b>${stay.length}<small>/6 间</small></b>当晚占房${stay.length?'<i>已住 '+checkedIn+' · 待到 '+(stay.length-checkedIn)+'</i>':''}</span></div>
  <div class="daynav"><button type="button" class="sm" data-day="-1">‹ 前一天</button><input type="date" id="dayPick" value="${esc(d)}" aria-label="安排日期"><button type="button" class="sm" data-day="1">后一天 ›</button>${isToday?'':'<button type="button" class="sm" data-day="0">回到今天</button>'}</div></section>`;
  h+=`<section class="sec"><div class="sec-h"><h3>当日到店</h3><span>${arr.length?arr.length+' 单 · 按船班时间':''}</span></div>${arr.length?'<div class="list">'+arr.map((g)=>orderCard(g,'in',d)).join('')+'</div>':'<div class="empty">这一天没有客人到店</div>'}</section>`;
@@ -175,7 +175,7 @@ function filtered(){const q=filt.q.trim().toLowerCase();return live().filter((r)
  &&(!q||[r.name,r.phone,r.reference,r.notes,r.group,r.origin,r.room].join(' ').toLowerCase().includes(q)));}
 function viewLedger(){const rows=filtered(),months=[...new Set(live().map((r)=>r.checkin.slice(0,7)))].sort().reverse();
  const orders=groupOrders(rows).sort((a,b)=>b[0].checkin.localeCompare(a[0].checkin)||roomIdx(a[0].room)-roomIdx(b[0].room));
- let h=`${pageHead('预订台账','left 40%')}<p class="lede">一单可以包含多间房；收款按整单记，不会重复计算。</p>
+ let h=`<h2>预订台账</h2><p class="lede">一单可以包含多间房；收款按整单记，不会重复计算。</p>
  <div class="filters"><input id="fq" placeholder="搜称呼、电话、房间、订单号、备注" value="${esc(filt.q)}" aria-label="搜索">
  <select id="fs" aria-label="状态"><option value="">全部状态</option>${STATUSES.map((s)=>`<option${filt.status===s?' selected':''}>${s}</option>`).join('')}</select>
  <select id="fc" aria-label="渠道"><option value="">全部渠道</option>${CHANNELS.map((s)=>`<option${filt.channel===s?' selected':''}>${s}</option>`).join('')}</select>
@@ -186,7 +186,7 @@ function viewLedger(){const rows=filtered(),months=[...new Set(live().map((r)=>r
 
 /* ---------- 房态日历 ---------- */
 function viewCalendar(){const ds=[...Array(14)].map((_,i)=>addDays(calStart,i)),t=today();
- let h=`${pageHead('房态日历','right 30%')}<p class="lede">同一间房日期重叠会拦下；离店当天可以安排下一位入住。</p>
+ let h=`<h2>房态日历</h2><p class="lede">同一间房日期重叠会拦下；离店当天可以安排下一位入住。</p>
  <div class="daynav"><button type="button" class="sm" data-cal="-7">前一周</button><input type="date" id="calPick" value="${esc(calStart)}" aria-label="起始日期"><button type="button" class="sm" data-cal="7">后一周</button>${calStart===t?'':'<button type="button" class="sm" data-cal="0">从今天看</button>'}</div>
  <div class="cal-wrap"><table class="cal"><thead><tr><th class="room"></th>${ds.map((d,i)=>{const w=new Date(d+'T00:00:00').getDay();return `<th class="${d===t?'td':(w===0||w===6)?'we':''}">${i===0||d.slice(8)==='01'?Number(d.slice(5,7))+'月':''}${Number(d.slice(8))}日<br>${wd(d).slice(1)}</th>`;}).join('')}</tr></thead><tbody>`;
  ROOMS.forEach(([n])=>{h+=`<tr><th class="room">${n}</th>`;ds.forEach((d,i)=>{const r=live().find((x)=>ACTIVE.includes(x.status)&&x.room===n&&x.checkin<=d&&x.checkout>d);
@@ -207,7 +207,7 @@ function viewStats(){const [s,e]=monthRange(statMonth);const recs=live();
  const ch=CHANNELS.map((c)=>({c,v:booked.filter((g)=>g[0].channel===c).length})).filter((x)=>x.v);
  const maxR=Math.max(1,...byRoom.map((x)=>x.v)),maxC=Math.max(1,...ch.map((x)=>x.v));
  const months=[...new Set(recs.flatMap((r)=>[r.checkin.slice(0,7),(r.bookingDate||'').slice(0,7)]).concat(liveExp().map((x)=>x.date.slice(0,7))).filter(Boolean).concat([today().slice(0,7)]))].sort().reverse();
- return `${pageHead('经营概览','center 70%')}<p class="lede">只统计这本台账里登记过的订单。</p>
+ return `<h2>经营概览</h2><p class="lede">只统计这本台账里登记过的订单。</p>
  <div class="daynav"><select id="statM" aria-label="统计月份" style="width:auto">${months.map((m)=>`<option value="${m}"${m===statMonth?' selected':''}>${mlabel(m)}</option>`).join('')}</select></div>
  <div class="grid3"><div class="kpi"><div class="l">已登记间夜</div><div class="v">${nights}<small>间夜</small></div><div class="s">按住宿日 · 不含待确认、取消</div></div>
  <div class="kpi"><div class="l">分摊房费</div><div class="v">${yuan(alloc)}<small>元</small></div><div class="s">${nights?'有金额的 '+knownN+'/'+nights+' 间夜':'—'}</div></div>
@@ -236,7 +236,7 @@ function advHTML(s,e){const mx=liveExp().filter((x)=>x.date>=s&&x.date<e),pendAl
 function viewBackup(){const last=lastBackup();const dd=last?Math.floor((Date.now()-Date.parse(last))/864e5):null;
  const trash=all.filter((r)=>r.deleted).sort((a,b)=>(b.deletedAt||'').localeCompare(a.deletedAt||''));
  const months=[...new Set(live().map((r)=>r.checkin.slice(0,7)).concat([today().slice(0,7)]))].sort().reverse();
- return `${pageHead('备份与导出','left 80%')}<p class="lede"><b class="ink">仅保存在这台手机里，没有和其他手机、电脑同步。</b>换手机、清理浏览器数据前一定要先备份。</p>
+ return `<h2>备份与导出</h2><p class="lede"><b class="ink">仅保存在这台手机里，没有和其他手机、电脑同步。</b>换手机、清理浏览器数据前一定要先备份。</p>
  <div class="card"><div class="sec-h"><h3>完整备份</h3><span class="${!last||dd>=BACKUP_DAYS?'owe':''}">${last?'上次备份 '+cn(last.slice(0,10))+(dd>=BACKUP_DAYS?'，已 '+dd+' 天':''):(all.length?'还没备份过':'')}</span></div>
  <p class="muted small" style="margin:0">建议每周备份一次，存到微信文件传输助手或网盘。备份含客人电话，只存在自己的设备里。换手机时在新手机上「导入备份」恢复。</p>
  <div class="actions"><button type="button" class="pri" id="bkBtn">下载完整备份</button><button type="button" id="rsBtn">导入备份</button><input type="file" id="rsFile" accept=".json,application/json" hidden></div></div>
