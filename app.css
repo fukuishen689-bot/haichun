@@ -534,3 +534,13 @@ fieldset.pick legend{color:var(--accent)}
 .svcform input{background:var(--panel)}
 .svcform .actions{margin-top:2px}
 .rm div.svtag{color:var(--sand);font-weight:700}
+/* 查房 */
+.insp{display:grid;gap:6px}
+.inspline{display:flex;align-items:center;justify-content:space-between;gap:8px;background:var(--bad-soft);border-radius:10px;padding:7px 12px;font-size:15px}
+.inspline.ok{background:var(--ok-soft);color:var(--ok);font-weight:600}
+.inspline.ok b{color:var(--ink)}
+.noinsp{color:var(--bad);font-weight:700}
+.itag{font-size:12px;font-weight:700;border-radius:999px;padding:4px 9px;white-space:nowrap}
+.itag.no{background:var(--bad);color:#fff}
+.itag.ok{background:var(--ok-soft);color:var(--ok)}
+.ticket.compact .cright{flex-wrap:wrap;justify-content:flex-end;row-gap:4px}

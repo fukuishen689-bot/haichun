@@ -117,18 +117,23 @@ function arriveCtl(g,d){const r=g[0];const ids=g.map((x)=>x.id).join(',');
  if(d>today())return '<span class="pill p-pending">待到店</span>';
  return `<button type="button" class="arrive" data-arrive="${esc(ids)}">到店</button>`;}
 const expanded=new Set();let leaveAsk='';
+/* 查房：每间房单独记录，和到店互不影响 */
+function inspHTML(g){return `<div class="insp">${g.map((x)=>x.inspectedAt?`<div class="inspline ok"><span><b>${esc(x.room)}</b> ✓ 已查房 ${hm(x.inspectedAt)}</span><button type="button" class="link undo" data-uninsp="${esc(x.id)}">撤销</button></div>`
+ :`<div class="inspline"><span><b>${esc(x.room)}</b> <span class="noinsp">未查房</span></span><button type="button" class="sm pri" data-insp="${esc(x.id)}">查房</button></div>`).join('')}</div>`;}
+function inspTag(g){if(g.length===1)return g[0].inspectedAt?'<span class="itag ok">已查房</span>':'<span class="itag no">未查房</span>';
+ const n=g.filter((x)=>!x.inspectedAt);return n.length?`<span class="itag no">${n.map((x)=>esc(x.room)).join('、')}未查房</span>`:'<span class="itag ok">已查房</span>';}
 function debtTag(s){return s.owe>0?`<span class="debt">待收 ¥${yuan(s.owe)}</span>`:(s.missing?'<span class="debt soft">金额待核对</span>':'');}
 function orderCard(g,kind,d){const r=g[0],k=okey(r),s=sumOrder(g),done=kind==='in'&&g.every((x)=>x.status!=='已预订'),left=kind==='out'&&r.status==='已退房';const adults=g.reduce((a,x)=>a+(Number(x.adults)||0),0),kids=g.reduce((a,x)=>a+(Number(x.children)||0),0);
  const cls=`ticket t-${kind}${done?' is-in':''}${left?' is-out':''}`;
  const dueNow=r.checkout<=d||left; // 到了离店日才在收起状态提醒欠款
  if((done||left)&&!expanded.has(k)){
   return `<article class="${cls} compact" data-expand="${esc(k)}" role="button" tabindex="0" aria-label="展开 ${esc(r.name)}"><div class="cline"><b>${esc(r.name)}</b><span class="dot">·</span>${g.map((x)=>esc(x.room)).join('、')}<span class="dot">·</span><span class="range">${sd(r.checkin)}–${sd(r.checkout)}</span></div>
-  <div class="cright">${dueNow?debtTag(s):''}<span class="stamp ${left?'out':'in'}">${left?'已离店':'已到店'}</span><span class="chev" aria-hidden="true">›</span></div></article>`;}
+  <div class="cright">${dueNow?debtTag(s):''}<span class="stamp ${left?'out':'in'}">${left?'已离店':'已到店'}</span>${kind==='in'?inspTag(g):''}<span class="chev" aria-hidden="true">›</span></div></article>`;}
  const money=s.owe>0?`<div class="owe big">待收 ¥${yuan(s.owe)}</div>`:(s.missing?'<div class="debt soft inline">金额待核对</div>':'');
  const ask=leaveAsk===k&&kind==='out'&&!left?`<div class="confirm block">还有 <b>待收 ¥${yuan(s.owe)}</b>。离店后仍按欠款提醒，不会自动记为收齐。<div class="actions"><button type="button" class="sm pri" data-paidleave="${esc(g.map((x)=>x.id).join(','))}">已收款</button><button type="button" class="sm danger" data-leave="${esc(g.map((x)=>x.id).join(','))}" data-force="1">仍然离店</button><button type="button" class="sm" data-leaveno>取消</button></div></div>`:'';
  return `<article class="${cls}"${kind==='out'?' data-depcard="'+esc(k)+'"':''}><div class="thead"><button type="button" class="tname" data-open="${esc(r.id)}">${esc(r.name)}</button>${plates(g)}${rangeTag(r)}<span class="tact">${kind==='in'?arriveCtl(g,d):leaveCtl(g,d)}</span></div>
  <div class="tmeta">${s.nights} 晚${g.length>1?' · '+g.length+' 间':''} · ${adults} 位成人${kids?' '+kids+' 位儿童':''}${r.phone?' · '+esc(r.phone):''}</div>
- ${kind==='in'?routeIn(r):depTimeHTML(r)}${noteHTML(r)}${tasksHTML(r)}${money}${ask}${kind==='out'&&svcList(r).some((t)=>!t.doneAt)?svcHTML(g,d):''}${kind==='in'?'':nextHTML(g,d)}${(done||left)?`<button type="button" class="link fold" data-collapse="${esc(k)}">收起</button>`:''}</article>`;}
+ ${kind==='in'?routeIn(r)+inspHTML(g):depTimeHTML(r)}${noteHTML(r)}${tasksHTML(r)}${money}${ask}${kind==='out'&&svcList(r).some((t)=>!t.doneAt)?svcHTML(g,d):''}${kind==='in'?'':nextHTML(g,d)}${(done||left)?`<button type="button" class="link fold" data-collapse="${esc(k)}">收起</button>`:''}</article>`;}
 let depEdit='';
 /* 离店只在离店当天（或之后补记）可点：卡片在「当日离店」里，且离店日期不晚于今天 */
 function leaveCtl(g,d){const ids=g.map((x)=>x.id).join(',');const r=g[0];
@@ -332,6 +337,8 @@ function bindView(){const v=$('view');
  v.querySelectorAll('[data-svcdel]').forEach((el)=>el.addEventListener('click',()=>{const tid=el.dataset.tid;if(svcUpdate(el.dataset.svcdel,(L)=>{const i=L.findIndex((x)=>x.id===tid);if(i<0)return false;L.splice(i,1);}))toast('已删除这条待办');svcMod='';render();}));
  v.querySelectorAll('[data-svcdone]').forEach((el)=>el.addEventListener('click',()=>{const tid=el.dataset.tid;if(svcUpdate(el.dataset.svcdone,(L)=>{const t=L.find((x)=>x.id===tid);if(!t||t.doneAt)return false;t.doneAt=svcNow();t.hold=false;}))toast('已完成');render();}));
  v.querySelectorAll('[data-svcundo]').forEach((el)=>el.addEventListener('click',()=>{const tid=el.dataset.tid;if(svcUpdate(el.dataset.svcundo,(L)=>{const t=L.find((x)=>x.id===tid);if(!t)return false;t.doneAt='';}))toast('已撤销完成');render();}));
+ v.querySelectorAll('[data-insp]').forEach((el)=>el.addEventListener('click',()=>{const id=el.dataset.insp;let rm='';if(tx(()=>{const x=all.find((y)=>y.id===id);if(!x)return false;rm=x.room;x.inspectedAt=nowISO();x.updatedAt=x.inspectedAt;}))toast(rm+' 已查房');render();}));
+ v.querySelectorAll('[data-uninsp]').forEach((el)=>el.addEventListener('click',()=>{const id=el.dataset.uninsp;if(tx(()=>{const x=all.find((y)=>y.id===id);if(!x)return false;x.inspectedAt='';x.updatedAt=nowISO();}))toast('已撤销查房');render();}));
  v.querySelectorAll('[data-expand]').forEach((el)=>{const go=()=>{expanded.add(el.dataset.expand);render();};el.addEventListener('click',go);el.addEventListener('keydown',(e)=>{if(e.key==='Enter')go();});});
  v.querySelectorAll('[data-collapse]').forEach((el)=>el.addEventListener('click',()=>{expanded.delete(el.dataset.collapse);render();}));
  v.querySelectorAll('[data-paidleave]').forEach((el)=>el.addEventListener('click',()=>{const ids=el.dataset.paidleave;let name='',amt=0;
