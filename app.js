@@ -155,7 +155,7 @@ function svcList(r){let L=Array.isArray(r.svc)?r.svc:[];
 function svcName(t){return t.type==='其他'?t.text:SVC_NAME[t.type]||t.type;}
 function svcTitle(t){return t.type==='清理'?'待续住打扫':t.type==='收垃圾'?'待收垃圾':'待'+t.text;}
 function svcHTML(g,d){const k=okey(g[0]),L=svcList(g[0]);const pend=L.filter((t)=>!t.doneAt),done=L.filter((t)=>t.doneAt&&localDay(t.doneAt)===d);
- const entry=svcAdd===k?`<div class="svcpick"><label class="chk"><input type="checkbox" id="svcA"> 续住打扫</label><label class="chk"><input type="checkbox" id="svcB"> 仅收垃圾</label><label class="chk"><input type="checkbox" id="svcC"> 其他需求</label>
+ const entry=svcAdd===k?`<div class="svcpick"><label class="chk"><input type="checkbox" id="svcA"> 续住打扫</label><label class="chk"><input type="checkbox" id="svcC"> 其他</label>
   <input id="svcCText" placeholder="其他需求的具体内容，如 加毛巾" maxlength="60" hidden>
   <div class="actions"><button type="button" class="sm" data-svcaddno>取消</button><button type="button" class="sm pri" data-svcaddsave="${esc(k)}">保存</button></div></div>`:'';
  const pline=(t)=>svcMod===t.id?`<div class="svcline edit"><div class="svcform">
@@ -326,7 +326,7 @@ function bindView(){const v=$('view');
  const svcNow=()=>nowISO();
  v.querySelectorAll('[data-svcadd]').forEach((el)=>el.addEventListener('click',()=>{svcAdd=el.dataset.svcadd;render();}));
  if($('svcC'))$('svcC').addEventListener('change',()=>{$('svcCText').hidden=!$('svcC').checked;if($('svcC').checked)$('svcCText').focus();});
- v.querySelectorAll('[data-svcaddsave]').forEach((el)=>el.addEventListener('click',()=>{const a=$('svcA').checked,b=$('svcB').checked,c=$('svcC').checked,txt=$('svcCText').value.trim();
+ v.querySelectorAll('[data-svcaddsave]').forEach((el)=>el.addEventListener('click',()=>{const a=$('svcA').checked,b=false,c=$('svcC').checked,txt=$('svcCText').value.trim();
   if(!a&&!b&&!c){toast('先勾选需求');return;}if(c&&!txt){toast('写一下其他需求的内容');$('svcCText').focus();return;}const t=nowISO();let n=0;
   if(svcUpdate(el.dataset.svcaddsave,(L)=>{const has=(ty)=>L.some((x)=>!x.doneAt&&x.type===ty);
    if(a&&!has('清理')){L.push({id:newId(),type:'清理',text:'',createdAt:t,hold:false,holdNote:'',doneAt:''});n++;}
