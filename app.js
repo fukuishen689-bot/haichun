@@ -6,7 +6,7 @@ const roomIdx=(n)=>{const i=ROOM_NAMES.indexOf(n);return i<0?99:i;};
 const CHANNELS=['微信直订','电话直订','老客回头','朋友介绍','到店预订','携程','美团','飞猪','抖音','其他'];
 const STATUSES=['已预订','已入住','已退房','已取消','待确认'];
 const ACTIVE=['已预订','已入住','已退房'];
-const PICKUPS=['需接船','无需接船','待确认','已安排','已接到'];
+const PICKUPS=['需接船','无需接船','待确认','已安排'];
 const TICKETS=['待确认','未购票','已购票','有变动','停航/取消'];
 const GUEST_TYPES=['未记录','情侣/夫妻','亲子家庭','朋友同行','独自出行','其他'];
 const PORTS=['半升洞','沈家湾','东福山','青浜岛'];
@@ -108,7 +108,7 @@ function nextHTML(g,d){if(g[0].checkout>addDays(d,1))return '';const out=[];g.fo
 function tasksHTML(r){const ts=(r.tasks||[]);if(!ts.length)return '';return `<ul class="todo">${ts.map((t,i)=>`<li><label class="chk"><input type="checkbox" data-tdone="${esc(r.id)}" data-ti="${i}"${t.done?' checked':''}><span class="${t.done?'done':''}">${t.priority==='重要'?'<em class="imp">重要</em>':''}${esc(t.text)}${t.due?'<small> · '+cn(t.due)+'</small>':''}</span></label></li>`).join('')}</ul>`;}
 function noteHTML(r){return r.notes?`<p class="tnote">${esc(r.notes).replace(/\n/g,'<br>')}</p>`:'';}
 function routeIn(r){if(r.pickup==='无需接船')return '<div class="route muted">无需接船</div>';const l=r.arrival||{};const other=l.date&&l.date!==r.checkin;
- return `<div class="route">${esc(l.port||'出发港待确认')} ${l.time?'<b>'+esc(l.time)+'</b> 出发':'<span class="warnTxt">时间待确认</span>'}${other?' <span class="warnTxt">（船班日期 '+cn(l.date)+'，请核对）</span>':''}${l.ship?' · '+esc(l.ship):''}${r.pickup==='已安排'||r.pickup==='已接到'||r.pickup==='待确认'?' · '+esc(r.pickup==='待确认'?'接船待确认':r.pickup):''}</div>`;}
+ return `<div class="route">${esc(l.port||'出发港待确认')} ${l.time?'<b>'+esc(l.time)+'</b> 出发':'<span class="warnTxt">时间待确认</span>'}${other?' <span class="warnTxt">（船班日期 '+cn(l.date)+'，请核对）</span>':''}${l.ship?' · '+esc(l.ship):''}${r.pickup==='待确认'?' · 接船待确认':''}</div>`;}
 function routeOut(r){const l=r.departure||{};if(!(l.time||l.port||l.ship))return '<div class="route muted">返程船班未填</div>';return `<div class="route">${esc(l.port||'')} ${l.time?'<b>'+esc(l.time)+'</b>':''}${l.ship?' · '+esc(l.ship):''}</div>`;}
 function arriveCtl(g,d){const r=g[0];const ids=g.map((x)=>x.id).join(',');
  if(g.every((x)=>x.status==='已入住'||x.status==='已退房'))return `<span class="arrived">✓ 已到店${r.arrivedAt?' '+hm(r.arrivedAt):''}</span>${g.some((x)=>x.status==='已入住')?`<button type="button" class="link undo" data-unarrive="${esc(ids)}">撤销</button>`:''}`;
@@ -360,7 +360,7 @@ function drawEditor(){const d=$('editor'),r=ed;
  <div class="field-row"><label>整单已收款（元）<input type="number" inputmode="decimal" min="0" step="0.01" id="ePaid" value="${r.paid??''}" placeholder="未收填 0"></label><label>整单已退款（元）<input type="number" inputmode="decimal" min="0" step="0.01" id="eRefund" value="${r.refund??''}" placeholder="没有可不填"></label></div>
  <div class="calc" id="eCalc"></div>
  <fieldset class="pick"><legend>接船</legend>
- <div class="field-row"><label>是否接船<select id="ePickup">${PICKUPS.map((p)=>`<option${p===r.pickup?' selected':''}>${p}</option>`).join('')}</select></label><label>出发时间<input type="time" id="eArrTime" value="${esc(r.arrival.time)}"></label></div>
+ <div class="field-row"><label>是否接船<select id="ePickup">${(PICKUPS.includes(r.pickup)?PICKUPS:PICKUPS.concat([r.pickup])).map((p)=>`<option${p===r.pickup?' selected':''}>${esc(p)}</option>`).join('')}</select></label><label>出发时间<input type="time" id="eArrTime" value="${esc(r.arrival.time)}"></label></div>
  <div class="field-row">${portSel(r.arrival.port)}</div>
  <p class="shipnote" id="eShipNote"${edShipNote?'':' hidden'}>${esc(edShipNote)}</p></fieldset>
  <label>备注 / 注意事项（今日安排里会显示）<textarea id="eNotes" placeholder="例如：带儿童、行李较多、对海鲜过敏">${esc(r.notes)}</textarea></label>
