@@ -116,18 +116,19 @@ function arriveCtl(g,d){const r=g[0];const ids=g.map((x)=>x.id).join(',');
  return `<button type="button" class="arrive" data-arrive="${esc(ids)}">到店</button>`;}
 function orderCard(g,kind,d){const r=g[0],s=sumOrder(g),done=kind==='in'&&g.every((x)=>x.status!=='已预订');const adults=g.reduce((a,x)=>a+(Number(x.adults)||0),0),kids=g.reduce((a,x)=>a+(Number(x.children)||0),0);
  const money=s.owe>0?`<div class="owe big">待收 ${yuan(s.owe)} 元</div>`:(s.missing?'<div class="muted small">房费金额待补</div>':'');
- return `<article class="ticket t-${kind}${done?' done':''}"><div class="thead"><button type="button" class="tname" data-open="${esc(r.id)}">${esc(r.name)}</button>${plates(g)}${kind==='in'?'<span class="tact">'+arriveCtl(g,d)+'</span>':''}</div>
+ return `<article class="ticket t-${kind}${done||(kind==='out'&&r.status==='已退房')?' done':''}"${kind==='out'?' data-depcard="'+esc(okey(r))+'"':''}><div class="thead"><button type="button" class="tname" data-open="${esc(r.id)}">${esc(r.name)}</button>${plates(g)}${kind==='in'?'<span class="tact">'+arriveCtl(g,d)+'</span>':''}</div>
  <div class="tmeta">${kind==='in'?cn(r.checkout)+'离店':cn(r.checkin)+'入住'} · ${s.nights} 晚${g.length>1?' · '+g.length+' 间':''} · ${adults} 位成人${kids?' '+kids+' 位儿童':''}${r.phone?' · '+esc(r.phone):''}</div>
- ${kind==='in'?routeIn(r):routeOut(r)}${noteHTML(r)}${tasksHTML(r)}${money}${nextHTML(g,d)}</article>`;}
+ ${kind==='in'?routeIn(r):depTimeHTML(r)}${noteHTML(r)}${tasksHTML(r)}${money}${nextHTML(g,d)}</article>`;}
 let depEdit='';
 function leaveCtl(g,d){const ids=g.map((x)=>x.id).join(',');const r=g[0];
  if(r.status==='已退房')return `<span class="arrived">✓ 已离店${r.departedAt?' '+hm(r.departedAt):''}</span><button type="button" class="link undo" data-unleave="${esc(ids)}">撤销</button>`;
  if(r.status==='已入住'&&d<=today())return `<button type="button" class="arrive leave" data-leave="${esc(ids)}">离店</button>`;return '';}
-function houseCard(g,d){const r=g[0],k=okey(r),t=(r.departure&&r.departure.time)||'';const editing=depEdit===k;
- return `<article class="ticket house${r.status==='已退房'?' done':''}" data-depcard="${esc(k)}"><div class="thead"><button type="button" class="tname" data-open="${esc(r.id)}">${esc(r.name)}</button>${plates(g)}<span class="tact">${leaveCtl(g,d)}</span></div>
+function depTimeHTML(r){const k=okey(r),t=(r.departure&&r.departure.time)||'';
+ return depEdit===k?`<div class="depedit"><span>离岛时间</span><input type="time" id="depTime" value="${esc(t)}"><button type="button" class="sm pri" data-depsave="${esc(k)}">保存</button><button type="button" class="sm" data-depcancel>取消</button></div>`
+  :`<button type="button" class="route plain deptime" data-depedit="${esc(k)}">离岛时间：${t?'<b>'+esc(t)+'</b>':(r.status==='已退房'?'<span class="muted">未填</span>':'<span class="warnTxt">未填，点此填写</span>')}</button>`;}
+function houseCard(g,d){const r=g[0];
+ return `<article class="ticket house${r.status==='已退房'?' done':''}"><div class="thead"><button type="button" class="tname" data-open="${esc(r.id)}">${esc(r.name)}</button>${plates(g)}<span class="tact">${leaveCtl(g,d)}</span></div>
  <div class="tmeta">${r.checkout===today()?'本日离店':cn(r.checkout)+'离店'} · ${nightsOf(r)} 晚</div>
- ${editing?`<div class="depedit"><span>离岛时间</span><input type="time" id="depTime" value="${esc(t)}"><button type="button" class="sm pri" data-depsave="${esc(k)}">保存</button><button type="button" class="sm" data-depcancel>取消</button></div>`
-  :`<button type="button" class="route plain deptime" data-depedit="${esc(k)}">离岛时间：${t?'<b>'+esc(t)+'</b>':(r.status==='已退房'?'<span class="muted">未填</span>':'<span class="warnTxt">未填，点此填写</span>')}</button>`}
  ${noteHTML(r)}${tasksHTML(r)}${nextHTML(g,d)}</article>`;}
 function viewToday(){const d=dayView,isToday=d===today(),act=live().filter((r)=>ACTIVE.includes(r.status));
  const arrR=act.filter((r)=>r.checkin===d), depR=act.filter((r)=>r.checkout===d), stay=act.filter((r)=>r.checkin<=d&&r.checkout>d);
@@ -367,9 +368,6 @@ function openEditor(id){const src=id?all.find((x)=>x.id===id):null;const g=src?o
  if(g.length&&g.every((x)=>x.paid==null))ed.paid=null;
  SHARED.forEach((k)=>{ed[k]=b[k];});
  edDirty=false;edConfirmClose=false;edShipNote='';drawEditor();const d=$('editor');if(!d.open)d.showModal();}
-function portSel(v){const other=v&&!PORTS.includes(v);
- return `<label>出发港<select id="ePort"><option value="">待确认</option>${PORTS.map((p)=>`<option${p===v?' selected':''}>${p}</option>`).join('')}<option value="__o"${other?' selected':''}>其他地点…</option></select></label>
- <label id="ePortOtherW"${other?'':' hidden'}>其他出发地点<input id="ePortOther" value="${other?esc(v):''}" placeholder="如 沈家门"></label>`;}
 function drawEditor(){const d=$('editor'),r=ed;
  d.innerHTML=`<form class="dlg" id="edForm" novalidate><div class="dlg-h"><h3>${r._isNew?'新建登记':'编辑登记'}</h3><button type="button" class="sm" id="edClose">关闭</button></div><div class="dlg-b">
  <div class="field-row"><label>客人称呼 <b>*</b><input id="eName" value="${esc(r.name)}" placeholder="怎样称呼客人" autocomplete="off"></label><label>联系电话<input id="ePhone" type="tel" inputmode="numeric" pattern="1[0-9]{10}" oninput="this.value=this.value.replace(/\\D/g,'').slice(0,11)" value="${esc(r.phone)}" placeholder="11 位手机号" autocomplete="off"></label></div>
@@ -380,12 +378,14 @@ function drawEditor(){const d=$('editor'),r=ed;
  <div class="field-row"><label>整单已收款（元）<input type="number" inputmode="decimal" min="0" step="0.01" id="ePaid" value="${r.paid??''}" placeholder="未收填 0"></label><label>整单已退款（元）<input type="number" inputmode="decimal" min="0" step="0.01" id="eRefund" value="${r.refund??''}" placeholder="没有可不填"></label></div>
  <div class="calc" id="eCalc"></div>
  <fieldset class="pick"><legend>接船</legend>
- <div class="field-row"><label>是否接船<select id="ePickup">${(PICKUPS.includes(r.pickup)?PICKUPS:PICKUPS.concat([r.pickup])).map((p)=>`<option${p===r.pickup?' selected':''}>${esc(p)}</option>`).join('')}</select></label><label>出发时间<input type="time" id="eArrTime" value="${esc(r.arrival.time)}"></label></div>
- <div class="field-row">${portSel(r.arrival.port)}</div>
+ <label>出发港<input id="ePort" value="${esc(r.arrival.port)}" placeholder="点下面选，或直接填写" autocomplete="off"></label>
+ <div class="portchips">${PORTS.map((p)=>`<button type="button" data-port="${p}" aria-pressed="${p===r.arrival.port}">${p}</button>`).join('')}</div>
+ <label>出发时间<input type="time" id="eArrTime" value="${esc(r.arrival.time)}"></label>
  <p class="shipnote" id="eShipNote"${edShipNote?'':' hidden'}>${esc(edShipNote)}</p></fieldset>
  <label>备注 / 注意事项（今日安排里会显示）<textarea id="eNotes" placeholder="例如：带儿童、行李较多、对海鲜过敏">${esc(r.notes)}</textarea></label>
- <details><summary>船班日期、船票与返程</summary><div class="inner">
+ <details><summary>接船、船班日期、船票与返程</summary><div class="inner">
   <div class="field-row"><label>来程船班日期<input type="date" id="eArrDate" value="${esc(r.arrival.date)}"></label><label>来程船名 / 航次<input id="eArrShip" value="${esc(r.arrival.ship)}" placeholder="可选"></label></div>
+  <label>接船（默认需接船）<select id="ePickup">${(PICKUPS.includes(r.pickup)?PICKUPS:PICKUPS.concat([r.pickup])).map((p)=>`<option${p===r.pickup?' selected':''}>${esc(p)}</option>`).join('')}</select></label>
   <label>来程船票<select id="eArrTk">${TICKETS.map((t)=>`<option${t===r.arrival.ticket?' selected':''}>${t}</option>`).join('')}</select></label>
   <div class="field-row"><label>返程日期<input type="date" id="eDepDate" value="${esc(r.departure.date)}"></label><label>返程时间<input type="time" id="eDepTime" value="${esc(r.departure.time)}"></label></div>
   <div class="field-row"><label>返程到达港<input id="eDepPort" value="${esc(r.departure.port)}" placeholder="如 半升洞"></label><label>返程船票<select id="eDepTk">${TICKETS.map((t)=>`<option${t===r.departure.ticket?' selected':''}>${t}</option>`).join('')}</select></label></div>
@@ -409,7 +409,9 @@ function drawEditor(){const d=$('editor'),r=ed;
   drawRooms();drawRoomRows();recalc();});
  $('eOut').addEventListener('change',()=>{sync();drawRooms();drawRoomRows();recalc();});
  $('ePaid').addEventListener('input',()=>{sync();recalc();});$('eRefund').addEventListener('input',()=>{sync();recalc();});
- $('ePort').addEventListener('change',()=>{const o=$('ePort').value==='__o';$('ePortOtherW').hidden=!o;if(o)$('ePortOther').focus();});
+ const syncChips=()=>{const v=$('ePort').value.trim();d.querySelectorAll('[data-port]').forEach((b)=>b.setAttribute('aria-pressed',b.dataset.port===v?'true':'false'));};
+ $('ePort').addEventListener('input',syncChips);
+ d.querySelectorAll('[data-port]').forEach((b)=>b.addEventListener('click',()=>{$('ePort').value=b.dataset.port;syncChips();edDirty=true;}));
  $('eAddTask').addEventListener('click',()=>{sync();ed.tasks.push({text:'',done:false,due:ed.checkin||today(),priority:'普通'});drawTasks();});
  f.addEventListener('submit',(e)=>{e.preventDefault();submitEditor();});
  {const t=$('eArrTime');const seed=()=>{if(!t.value)t.value='08:05';};t.addEventListener('pointerdown',seed);t.addEventListener('focus',seed);}
@@ -449,7 +451,7 @@ function sync(){if(!$('edForm'))return;const v=(id)=>$(id)?$(id).value:'';
  ed.pickup=v('ePickup')||ed.pickup;ed.children=Number(v('eCh'))||0;ed.channel=v('eChan')||ed.channel;ed.bookingDate=v('eBk');
  ed.reference=v('eRef').trim();if($('eGroup'))ed.group=v('eGroup').trim();ed.guestType=v('eGT')||ed.guestType;ed.origin=v('eOrigin').trim();
  if($('eStatus'))ed.status=$('eStatus').value;
- const p=v('ePort');ed.arrival.port=p==='__o'?v('ePortOther').trim():p;ed.arrival.time=v('eArrTime');ed.arrival.date=v('eArrDate');ed.arrival.ship=v('eArrShip').trim();ed.arrival.ticket=v('eArrTk')||ed.arrival.ticket;
+ ed.arrival.port=v('ePort').trim();ed.arrival.time=v('eArrTime');ed.arrival.date=v('eArrDate');ed.arrival.ship=v('eArrShip').trim();ed.arrival.ticket=v('eArrTk')||ed.arrival.ticket;
  ed.departure.date=v('eDepDate');ed.departure.time=v('eDepTime');ed.departure.port=v('eDepPort').trim();ed.departure.ticket=v('eDepTk')||ed.departure.ticket;
  document.querySelectorAll('[data-tk]').forEach((el)=>{const [i,f]=el.dataset.tk.split('.');const t=ed.tasks[Number(i)];if(!t)return;t[f]=f==='done'?el.checked:el.value.trim();});}
 function recalc(){const box=$('eCalc');if(!box)return;const n=nightsOf(ed);ed.rooms.forEach((x)=>autoAmt(x));
