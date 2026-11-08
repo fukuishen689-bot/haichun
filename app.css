@@ -518,3 +518,6 @@ fieldset.pick legend{color:var(--accent)}
 .svcline.done{background:var(--ok-soft)}
 .svcline.done .svct{color:var(--ink)}
 .svcok{color:var(--ok);font-weight:700;font-size:14px;white-space:nowrap}
+.svcwait{font-size:13px;color:var(--sand);font-weight:600;white-space:nowrap}
+.svcline.done .svct{font-weight:600;color:var(--ok)}
+.link.small{font-size:13px;margin-top:6px;padding:0}
