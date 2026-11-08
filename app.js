@@ -101,6 +101,8 @@ function render(){const v=$('view');
 function lastBackup(){try{return localStorage.getItem(BKEY);}catch(e){return null;}}
 function backupBanner(){if(!all.length)return '';const l=lastBackup();const dd=l?Math.floor((Date.now()-Date.parse(l))/864e5):null;if(l&&dd<BACKUP_DAYS)return '';
  return `<div class="banner"><div><b>${l?'已经 '+dd+' 天没备份':'还没有备份过'}</b>数据只存在这台手机里，不会自动同步。手机丢失、清理浏览器数据都会丢。</div><button type="button" class="sm pri" data-tab-go="backup">去备份</button></div>`;}
+function sd(x){return dateOK(x)?Number(x.slice(5,7))+'/'+Number(x.slice(8,10)):'';}
+function rangeTag(r){return `<span class="range">${sd(r.checkin)}–${sd(r.checkout)}</span>`;}
 function plates(g){return g.map((r)=>`<span class="plate">${esc(r.room)}</span>`).join('');}
 function nextOf(r){return live().find((x)=>x.id!==r.id&&okey(x)!==okey(r)&&ACTIVE.includes(x.status)&&x.room===r.room&&x.checkin===r.checkout)||null;}
 function nextHTML(g,d){if(g[0].checkout>addDays(d,1))return '';const out=[];g.forEach((r)=>{const n=nextOf(r);if(!n)return;const l=n.arrival&&(!n.arrival.date||n.arrival.date===n.checkin)?n.arrival:null;
@@ -116,8 +118,8 @@ function arriveCtl(g,d){const r=g[0];const ids=g.map((x)=>x.id).join(',');
  return `<button type="button" class="arrive" data-arrive="${esc(ids)}">到店</button>`;}
 function orderCard(g,kind,d){const r=g[0],s=sumOrder(g),done=kind==='in'&&g.every((x)=>x.status!=='已预订');const adults=g.reduce((a,x)=>a+(Number(x.adults)||0),0),kids=g.reduce((a,x)=>a+(Number(x.children)||0),0);
  const money=s.owe>0?`<div class="owe big">待收 ${yuan(s.owe)} 元</div>`:(s.missing?'<div class="muted small">房费金额待补</div>':'');
- return `<article class="ticket t-${kind}${done||(kind==='out'&&r.status==='已退房')?' done':''}"${kind==='out'?' data-depcard="'+esc(okey(r))+'"':''}><div class="thead"><button type="button" class="tname" data-open="${esc(r.id)}">${esc(r.name)}</button>${plates(g)}${kind==='in'?'<span class="tact">'+arriveCtl(g,d)+'</span>':''}</div>
- <div class="tmeta">${kind==='in'?cn(r.checkout)+'离店':cn(r.checkin)+'入住'} · ${s.nights} 晚${g.length>1?' · '+g.length+' 间':''} · ${adults} 位成人${kids?' '+kids+' 位儿童':''}${r.phone?' · '+esc(r.phone):''}</div>
+ return `<article class="ticket t-${kind}${done||(kind==='out'&&r.status==='已退房')?' done':''}"${kind==='out'?' data-depcard="'+esc(okey(r))+'"':''}><div class="thead"><button type="button" class="tname" data-open="${esc(r.id)}">${esc(r.name)}</button>${plates(g)}${rangeTag(r)}${kind==='in'?'<span class="tact">'+arriveCtl(g,d)+'</span>':''}</div>
+ <div class="tmeta">${s.nights} 晚${g.length>1?' · '+g.length+' 间':''} · ${adults} 位成人${kids?' '+kids+' 位儿童':''}${r.phone?' · '+esc(r.phone):''}</div>
  ${kind==='in'?routeIn(r):depTimeHTML(r)}${noteHTML(r)}${tasksHTML(r)}${money}${nextHTML(g,d)}</article>`;}
 let depEdit='';
 function leaveCtl(g,d){const ids=g.map((x)=>x.id).join(',');const r=g[0];
@@ -127,8 +129,8 @@ function depTimeHTML(r){const k=okey(r),t=(r.departure&&r.departure.time)||'';
  return depEdit===k?`<div class="depedit"><span>离岛时间</span><input type="time" id="depTime" value="${esc(t)}"><button type="button" class="sm pri" data-depsave="${esc(k)}">保存</button><button type="button" class="sm" data-depcancel>取消</button></div>`
   :`<button type="button" class="route plain deptime" data-depedit="${esc(k)}">离岛时间：${t?'<b>'+esc(t)+'</b>':(r.status==='已退房'?'<span class="muted">未填</span>':'<span class="warnTxt">未填，点此填写</span>')}</button>`;}
 function houseCard(g,d){const r=g[0];
- return `<article class="ticket house${r.status==='已退房'?' done':''}"><div class="thead"><button type="button" class="tname" data-open="${esc(r.id)}">${esc(r.name)}</button>${plates(g)}<span class="tact">${leaveCtl(g,d)}</span></div>
- <div class="tmeta">${r.checkout===today()?'本日离店':cn(r.checkout)+'离店'} · ${nightsOf(r)} 晚</div>
+ return `<article class="ticket house${r.status==='已退房'?' done':''}"><div class="thead"><button type="button" class="tname" data-open="${esc(r.id)}">${esc(r.name)}</button>${plates(g)}${rangeTag(r)}<span class="tact">${leaveCtl(g,d)}</span></div>
+ <div class="tmeta">${nightsOf(r)} 晚 · ${r.checkout===today()?'本日离店':cn(r.checkout)+'离店'}</div>
  ${noteHTML(r)}${tasksHTML(r)}${nextHTML(g,d)}</article>`;}
 function viewToday(){const d=dayView,isToday=d===today(),act=live().filter((r)=>ACTIVE.includes(r.status));
  const arrR=act.filter((r)=>r.checkin===d), depR=act.filter((r)=>r.checkout===d), stay=act.filter((r)=>r.checkin<=d&&r.checkout>d);

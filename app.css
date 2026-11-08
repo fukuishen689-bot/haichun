@@ -471,3 +471,4 @@ fieldset.pick legend{color:var(--accent)}
 .portchips{display:flex;gap:8px;flex-wrap:wrap;margin-top:-4px}
 .portchips button{padding:7px 14px;border-radius:999px;background:var(--panel);font-size:14px;border:1.5px solid transparent}
 .portchips button[aria-pressed="true"]{border-color:var(--accent);color:var(--accent);font-weight:600}
+.range{font-size:14px;font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums;margin-left:2px}
