@@ -472,3 +472,17 @@ fieldset.pick legend{color:var(--accent)}
 .portchips button{padding:7px 14px;border-radius:999px;background:var(--panel);font-size:14px;border:1.5px solid transparent}
 .portchips button[aria-pressed="true"]{border-color:var(--accent);color:var(--accent);font-weight:600}
 .range{font-size:14px;font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums;margin-left:2px}
+/* 到店 / 离店：明显的状态 */
+.stamp{display:inline-flex;align-items:center;gap:4px;font-size:14px;font-weight:700;border-radius:999px;padding:6px 14px;white-space:nowrap}
+.stamp.in{background:var(--accent);color:var(--accent-ink)}
+.stamp.out{background:var(--sand);color:#fff}
+.ticket.is-in,.ticket.is-out{position:relative;opacity:1}
+.ticket.is-in{background:var(--accent-soft)}
+.ticket.is-out{background:var(--sand-soft)}
+.ticket.is-in::before,.ticket.is-out::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--accent);border-radius:14px 0 0 14px}
+.ticket.is-out::before{background:var(--sand)}
+.ticket.is-in .tname,.ticket.is-out .tname,.ticket.is-in .route,.ticket.is-out .tmeta{color:var(--ink)}
+.ticket.is-in .route,.ticket.is-in .tmeta{opacity:.75}
+.ticket.done{opacity:1}
+.undo{font-size:13px;margin-left:2px}
+.stamp.soft{background:var(--accent-soft);color:var(--accent);font-size:13px;padding:4px 12px}

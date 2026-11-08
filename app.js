@@ -113,18 +113,18 @@ function routeIn(r){if(r.pickup==='无需接船')return '<div class="route muted
  return `<div class="route">${esc(l.port||'出发港待确认')} ${l.time?'<b>'+esc(l.time)+'</b> 出发':'<span class="warnTxt">时间待确认</span>'}${other?' <span class="warnTxt">（船班日期 '+cn(l.date)+'，请核对）</span>':''}${l.ship?' · '+esc(l.ship):''}${r.pickup==='待确认'?' · 接船待确认':''}</div>`;}
 function routeOut(r){const l=r.departure||{};if(!(l.time||l.port||l.ship))return '<div class="route muted">返程船班未填</div>';return `<div class="route">${esc(l.port||'')} ${l.time?'<b>'+esc(l.time)+'</b>':''}${l.ship?' · '+esc(l.ship):''}</div>`;}
 function arriveCtl(g,d){const r=g[0];const ids=g.map((x)=>x.id).join(',');
- if(g.every((x)=>x.status==='已入住'||x.status==='已退房'))return `<span class="arrived">✓ 已到店${r.arrivedAt?' '+hm(r.arrivedAt):''}</span>${g.some((x)=>x.status==='已入住')?`<button type="button" class="link undo" data-unarrive="${esc(ids)}">撤销</button>`:''}`;
+ if(g.every((x)=>x.status==='已入住'||x.status==='已退房'))return `<span class="stamp in">✓ 已到店${r.arrivedAt?' '+hm(r.arrivedAt):''}</span>${g.some((x)=>x.status==='已入住')?`<button type="button" class="link undo" data-unarrive="${esc(ids)}">撤销</button>`:''}`;
  if(d>today())return '<span class="pill p-pending">待到店</span>';
  return `<button type="button" class="arrive" data-arrive="${esc(ids)}">到店</button>`;}
 function orderCard(g,kind,d){const r=g[0],s=sumOrder(g),done=kind==='in'&&g.every((x)=>x.status!=='已预订');const adults=g.reduce((a,x)=>a+(Number(x.adults)||0),0),kids=g.reduce((a,x)=>a+(Number(x.children)||0),0);
  const money=s.owe>0?`<div class="owe big">待收 ${yuan(s.owe)} 元</div>`:(s.missing?'<div class="muted small">房费金额待补</div>':'');
- return `<article class="ticket t-${kind}${done||(kind==='out'&&r.status==='已退房')?' done':''}"${kind==='out'?' data-depcard="'+esc(okey(r))+'"':''}><div class="thead"><button type="button" class="tname" data-open="${esc(r.id)}">${esc(r.name)}</button>${plates(g)}${rangeTag(r)}<span class="tact">${kind==='in'?arriveCtl(g,d):leaveCtl(g,d)}</span></div>
+ return `<article class="ticket t-${kind}${done?' is-in':''}${kind==='out'&&r.status==='已退房'?' is-out':''}"${kind==='out'?' data-depcard="'+esc(okey(r))+'"':''}><div class="thead"><button type="button" class="tname" data-open="${esc(r.id)}">${esc(r.name)}</button>${plates(g)}${rangeTag(r)}<span class="tact">${kind==='in'?arriveCtl(g,d):leaveCtl(g,d)}</span></div>
  <div class="tmeta">${s.nights} 晚${g.length>1?' · '+g.length+' 间':''} · ${adults} 位成人${kids?' '+kids+' 位儿童':''}${r.phone?' · '+esc(r.phone):''}</div>
  ${kind==='in'?routeIn(r):depTimeHTML(r)}${noteHTML(r)}${tasksHTML(r)}${money}${nextHTML(g,d)}</article>`;}
 let depEdit='';
 /* 离店只在离店当天（或之后补记）可点：卡片在「当日离店」里，且离店日期不晚于今天 */
 function leaveCtl(g,d){const ids=g.map((x)=>x.id).join(',');const r=g[0];
- if(r.status==='已退房')return `<span class="arrived">✓ 已离店${r.departedAt?' '+hm(r.departedAt):''}</span><button type="button" class="link undo" data-unleave="${esc(ids)}">撤销</button>`;
+ if(r.status==='已退房')return `<span class="stamp out">✓ 已离店${r.departedAt?' '+hm(r.departedAt):''}</span><button type="button" class="link undo" data-unleave="${esc(ids)}">撤销</button>`;
  if(r.checkout!==d)return '';
  if(d>today())return '<span class="pill p-pending">未到离店日</span>';
  return `<button type="button" class="arrive leave" data-leave="${esc(ids)}">离店</button>`;}
@@ -132,7 +132,7 @@ function depTimeHTML(r){const k=okey(r),t=(r.departure&&r.departure.time)||'';
  return depEdit===k?`<div class="depedit"><span>离岛时间</span><input type="time" id="depTime" value="${esc(t)}"><button type="button" class="sm pri" data-depsave="${esc(k)}">保存</button><button type="button" class="sm" data-depcancel>取消</button></div>`
   :`<button type="button" class="route plain deptime" data-depedit="${esc(k)}">离岛时间：${t?'<b>'+esc(t)+'</b>':(r.status==='已退房'?'<span class="muted">未填</span>':'<span class="warnTxt">未填，点此填写</span>')}</button>`;}
 function houseCard(g,d){const r=g[0];
- return `<article class="ticket house"><div class="thead"><button type="button" class="tname" data-open="${esc(r.id)}">${esc(r.name)}</button>${plates(g)}${rangeTag(r)}<span class="tact">${r.status==='已预订'?'<span class="pill p-warn">未登记到店</span>'+arriveCtl(g,d):''}</span></div>
+ return `<article class="ticket house"><div class="thead"><button type="button" class="tname" data-open="${esc(r.id)}">${esc(r.name)}</button>${plates(g)}${rangeTag(r)}<span class="tact">${r.status==='已预订'?'<span class="pill p-warn">未登记到店</span>'+arriveCtl(g,d):(r.checkin===d?'<span class="stamp soft">本日到店'+(r.arrivedAt?' '+hm(r.arrivedAt):'')+'</span>':'')}</span></div>
  <div class="tmeta">${nightsOf(r)} 晚 · ${r.checkout===addDays(d,1)?'次日离店':cn(r.checkout)+'离店'}</div>
  ${noteHTML(r)}${tasksHTML(r)}${nextHTML(g,d)}</article>`;}
 function viewToday(){const d=dayView,isToday=d===today(),act=live().filter((r)=>ACTIVE.includes(r.status));
@@ -140,7 +140,7 @@ function viewToday(){const d=dayView,isToday=d===today(),act=live().filter((r)=>
  const tkey=(g)=>(g[0].arrival&&g[0].arrival.time)||'99';
  const arr=groupOrders(arrR).sort((a,b)=>(a.every((x)=>x.status!=='已预订')?1:0)-(b.every((x)=>x.status!=='已预订')?1:0)||tkey(a).localeCompare(tkey(b)));
  const dep=groupOrders(depR).sort((a,b)=>((a[0].departure.time)||'99').localeCompare((b[0].departure.time)||'99'));
- const inHouse=groupOrders(act.filter((r)=>r.checkin<d&&r.checkout>d&&r.status!=='已退房')).sort((a,b)=>a[0].checkout.localeCompare(b[0].checkout)||roomIdx(a[0].room)-roomIdx(b[0].room));
+ const inHouse=groupOrders(act.filter((r)=>r.checkout>d&&((r.checkin<d&&r.status!=='已退房')||(r.checkin===d&&r.status==='已入住')))).sort((a,b)=>a[0].checkout.localeCompare(b[0].checkout)||roomIdx(a[0].room)-roomIdx(b[0].room));
  const inNow=inHouse.filter((g)=>g[0].status==='已入住').reduce((a,g)=>a+g.length,0);
  const departed=depR.filter((r)=>r.status==='已退房').length;
  const arrived=arrR.filter((r)=>r.status!=='已预订').length, checkedIn=stay.filter((r)=>r.status==='已入住').length;
