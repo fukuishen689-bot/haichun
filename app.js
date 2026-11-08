@@ -125,7 +125,7 @@ function orderCard(g,kind,d){const r=g[0],k=okey(r),s=sumOrder(g),done=kind==='i
   return `<article class="${cls} compact" data-expand="${esc(k)}" role="button" tabindex="0" aria-label="展开 ${esc(r.name)}"><div class="cline"><b>${esc(r.name)}</b><span class="dot">·</span>${g.map((x)=>esc(x.room)).join('、')}<span class="dot">·</span><span class="range">${sd(r.checkin)}–${sd(r.checkout)}</span></div>
   <div class="cright">${dueNow?debtTag(s):''}<span class="stamp ${left?'out':'in'}">${left?'已离店':'已到店'}</span><span class="chev" aria-hidden="true">›</span></div></article>`;}
  const money=s.owe>0?`<div class="owe big">待收 ¥${yuan(s.owe)}</div>`:(s.missing?'<div class="debt soft inline">金额待核对</div>':'');
- const ask=leaveAsk===k&&kind==='out'&&!left?`<div class="confirm block">还有 <b>待收 ¥${yuan(s.owe)}</b>。离店后仍按欠款提醒，不会自动记为收齐。<div class="actions"><button type="button" class="sm" data-open="${esc(r.id)}">先登记收款</button><button type="button" class="sm danger" data-leave="${esc(g.map((x)=>x.id).join(','))}" data-force="1">仍然离店</button><button type="button" class="sm" data-leaveno>取消</button></div></div>`:'';
+ const ask=leaveAsk===k&&kind==='out'&&!left?`<div class="confirm block">还有 <b>待收 ¥${yuan(s.owe)}</b>。离店后仍按欠款提醒，不会自动记为收齐。<div class="actions"><button type="button" class="sm pri" data-paidleave="${esc(g.map((x)=>x.id).join(','))}">已收款</button><button type="button" class="sm danger" data-leave="${esc(g.map((x)=>x.id).join(','))}" data-force="1">仍然离店</button><button type="button" class="sm" data-leaveno>取消</button></div></div>`:'';
  return `<article class="${cls}"${kind==='out'?' data-depcard="'+esc(k)+'"':''}><div class="thead"><button type="button" class="tname" data-open="${esc(r.id)}">${esc(r.name)}</button>${plates(g)}${rangeTag(r)}<span class="tact">${kind==='in'?arriveCtl(g,d):leaveCtl(g,d)}</span></div>
  <div class="tmeta">${s.nights} 晚${g.length>1?' · '+g.length+' 间':''} · ${adults} 位成人${kids?' '+kids+' 位儿童':''}${r.phone?' · '+esc(r.phone):''}</div>
  ${kind==='in'?routeIn(r):depTimeHTML(r)}${noteHTML(r)}${tasksHTML(r)}${money}${ask}${kind==='in'?'':nextHTML(g,d)}${kind==='in'?nextHTML(g,d):''}${(done||left)?`<button type="button" class="link fold" data-collapse="${esc(k)}">收起</button>`:''}</article>`;}
@@ -293,6 +293,10 @@ function bindView(){const v=$('view');
   [['fs','status'],['fc','channel'],['fm','month']].forEach(([id,k])=>$(id).addEventListener('change',()=>{filt[k]=$(id).value;render();}));}
  v.querySelectorAll('[data-expand]').forEach((el)=>{const go=()=>{expanded.add(el.dataset.expand);render();};el.addEventListener('click',go);el.addEventListener('keydown',(e)=>{if(e.key==='Enter')go();});});
  v.querySelectorAll('[data-collapse]').forEach((el)=>el.addEventListener('click',()=>{expanded.delete(el.dataset.collapse);render();}));
+ v.querySelectorAll('[data-paidleave]').forEach((el)=>el.addEventListener('click',()=>{const ids=el.dataset.paidleave;let name='',amt=0;
+  if(tx(()=>{const g=byIds(ids);if(!g.length)return false;name=g[0].name;amt=sumOrder(orderOf(g[0])).owe||0;const t=nowISO();
+   g.forEach((x)=>{if(x.amount!=null&&x.status!=='已取消')x.paid=Math.round(cents(x.amount)+(cents(x.refund)||0))/100;if(x.status==='已入住'||x.status==='已预订'){x.leftFrom=x.status;x.status='已退房';x.departedAt=t;}x.updatedAt=t;});})){
+   leaveAsk='';const gg=byIds(ids);if(gg[0])expanded.delete(okey(gg[0]));toast(name+' 已收款 ¥'+yuan(amt)+'，已离店');}render();}));
  v.querySelectorAll('[data-leaveno]').forEach((el)=>el.addEventListener('click',()=>{leaveAsk='';render();}));
  v.querySelectorAll('[data-depedit]').forEach((el)=>el.addEventListener('click',()=>{depEdit=el.dataset.depedit;render();const t=$('depTime');if(t)t.focus();}));
  v.querySelectorAll('[data-depcard]').forEach((el)=>el.addEventListener('click',(e)=>{if(e.target.closest('button,input,label,a'))return;if(depEdit===el.dataset.depcard)return;depEdit=el.dataset.depcard;render();const t=$('depTime');if(t)t.focus();}));
