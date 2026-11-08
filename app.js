@@ -153,7 +153,7 @@ function svcList(r){let L=Array.isArray(r.svc)?r.svc:[];
   if(v.kind)L.push({id:'m'+d+'k',type:v.kind,text:'',createdAt:d+'T00:00:00',hold:false,holdNote:'',doneAt:kd});if(v.other)L.push({id:'m'+d+'o',type:'其他',text:v.other,createdAt:d+'T00:00:00',hold:false,holdNote:'',doneAt:od});});}
  return L;}
 function svcName(t){return t.type==='其他'?t.text:SVC_NAME[t.type]||t.type;}
-function svcTitle(t){return svcName(t)+' · '+(t.type==='其他'?'待处理':SVC_PEND[t.type]||'待处理');}
+function svcTitle(t){return t.type==='清理'?'待续住打扫':t.type==='收垃圾'?'待收垃圾':'待'+t.text;}
 function svcHTML(g,d){const k=okey(g[0]),L=svcList(g[0]);const pend=L.filter((t)=>!t.doneAt),done=L.filter((t)=>t.doneAt&&localDay(t.doneAt)===d);
  const entry=svcAdd===k?`<div class="svcpick"><label class="chk"><input type="checkbox" id="svcA"> 续住打扫</label><label class="chk"><input type="checkbox" id="svcB"> 仅收垃圾</label><label class="chk"><input type="checkbox" id="svcC"> 其他需求</label>
   <input id="svcCText" placeholder="其他需求的具体内容，如 加毛巾" maxlength="60" hidden>
