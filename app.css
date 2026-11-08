@@ -521,3 +521,16 @@ fieldset.pick legend{color:var(--accent)}
 .svcwait{font-size:13px;color:var(--sand);font-weight:600;white-space:nowrap}
 .svcline.done .svct{font-weight:600;color:var(--ok)}
 .link.small{font-size:13px;margin-top:6px;padding:0}
+/* 服务待办 */
+.svcline.pend{background:var(--sand-soft);align-items:flex-start;flex-wrap:wrap}
+.svcline.pend .svct{font-size:16px;font-weight:700;color:var(--ink)}
+.svcline.pend.hold{background:var(--soft)}
+.holdtag{font-size:14px;font-weight:600;color:var(--sand)}
+.svcmain{flex:1 1 160px;min-width:0}
+.svcnote2{font-size:13px;margin-top:3px;color:var(--ink)}
+.svcbtns{display:flex;gap:6px;align-items:center}
+.svcline.edit{background:var(--soft);display:block}
+.svcform{display:grid;gap:8px}
+.svcform input{background:var(--panel)}
+.svcform .actions{margin-top:2px}
+.rm div.svtag{color:var(--sand);font-weight:700}

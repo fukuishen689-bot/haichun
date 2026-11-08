@@ -128,7 +128,7 @@ function orderCard(g,kind,d){const r=g[0],k=okey(r),s=sumOrder(g),done=kind==='i
  const ask=leaveAsk===k&&kind==='out'&&!left?`<div class="confirm block">还有 <b>待收 ¥${yuan(s.owe)}</b>。离店后仍按欠款提醒，不会自动记为收齐。<div class="actions"><button type="button" class="sm pri" data-paidleave="${esc(g.map((x)=>x.id).join(','))}">已收款</button><button type="button" class="sm danger" data-leave="${esc(g.map((x)=>x.id).join(','))}" data-force="1">仍然离店</button><button type="button" class="sm" data-leaveno>取消</button></div></div>`:'';
  return `<article class="${cls}"${kind==='out'?' data-depcard="'+esc(k)+'"':''}><div class="thead"><button type="button" class="tname" data-open="${esc(r.id)}">${esc(r.name)}</button>${plates(g)}${rangeTag(r)}<span class="tact">${kind==='in'?arriveCtl(g,d):leaveCtl(g,d)}</span></div>
  <div class="tmeta">${s.nights} 晚${g.length>1?' · '+g.length+' 间':''} · ${adults} 位成人${kids?' '+kids+' 位儿童':''}${r.phone?' · '+esc(r.phone):''}</div>
- ${kind==='in'?routeIn(r):depTimeHTML(r)}${noteHTML(r)}${tasksHTML(r)}${money}${ask}${kind==='in'?'':nextHTML(g,d)}${(done||left)?`<button type="button" class="link fold" data-collapse="${esc(k)}">收起</button>`:''}</article>`;}
+ ${kind==='in'?routeIn(r):depTimeHTML(r)}${noteHTML(r)}${tasksHTML(r)}${money}${ask}${kind==='out'&&svcList(r).some((t)=>!t.doneAt)?svcHTML(g,d):''}${kind==='in'?'':nextHTML(g,d)}${(done||left)?`<button type="button" class="link fold" data-collapse="${esc(k)}">收起</button>`:''}</article>`;}
 let depEdit='';
 /* 离店只在离店当天（或之后补记）可点：卡片在「当日离店」里，且离店日期不晚于今天 */
 function leaveCtl(g,d){const ids=g.map((x)=>x.id).join(',');const r=g[0];
@@ -139,24 +139,33 @@ function leaveCtl(g,d){const ids=g.map((x)=>x.id).join(',');const r=g[0];
 function depTimeHTML(r){const k=okey(r),t=(r.departure&&r.departure.time)||'';
  return depEdit===k?`<div class="depedit"><span>离岛时间</span><input type="time" id="depTime" value="${esc(t)}"><button type="button" class="sm pri" data-depsave="${esc(k)}">保存</button><button type="button" class="sm" data-depcancel>取消</button></div>`
   :`<button type="button" class="route plain deptime" data-depedit="${esc(k)}">离岛时间：${t?'<b>'+esc(t)+'</b>':(r.status==='已退房'?'<span class="muted">未填</span>':'<span class="warnTxt">未填，点此填写</span>')}</button>`;}
-/* 每日客房服务：按订单、按日期分别保存在第一间房的记录上 */
-let svcEdit='';
-function svcOf(g,d){const r=g[0];const v=Object.assign({kind:'',other:'',kindDone:'',otherDone:''},(r.service&&r.service[d])||{});
- if(v.done&&v.doneAt){if(v.kind&&!v.kindDone)v.kindDone=v.doneAt;if(v.other&&!v.otherDone)v.otherDone=v.doneAt;}return v;}
-const KIND_TXT={'清理':'房间清理','收垃圾':'仅收垃圾'};
-let svcAdd='';
-function svcHTML(g,d){const k=okey(g[0]),v=svcOf(g,d);
- const anyDone=!!(v.kindDone||v.otherDone),showChips=!anyDone||svcAdd===k;
- const chip=(kind)=>`<button type="button" class="svc" data-svc="${esc(k)}" data-kind="${kind}" aria-pressed="${v.kind===kind}"${v.kindDone?' disabled':''}>${KIND_TXT[kind]}</button>`;
- const line=(txt,doneAt,key)=>doneAt?`<div class="svcline done"><span class="svct">${esc(txt)} · 已完成 · ${hm(doneAt)}</span><button type="button" class="link undo" data-svcundo="${esc(k)}" data-item="${key}">撤销</button></div>`
-  :`<div class="svcline"><span class="svct">${esc(txt)}</span><span class="svcwait">待完成</span><button type="button" class="sm pri" data-svcdone="${esc(k)}" data-item="${key}">完成</button></div>`;
- const other=svcEdit===k?`<div class="svcedit"><input id="svcOther" value="${esc(v.other)}" placeholder="如 加毛巾、换浴巾" maxlength="60"><button type="button" class="sm pri" data-svcsave="${esc(k)}">保存</button><button type="button" class="sm" data-svccancel>取消</button></div>`:'';
- const lines=(v.kind?line(KIND_TXT[v.kind],v.kindDone,'kind'):'')+(v.other&&svcEdit!==k?line(v.other,v.otherDone,'other'):'');
- return `<div class="svcbox">${showChips?`<div class="svcrow">${v.kindDone?'':chip('清理')+chip('收垃圾')}${v.otherDone?'':`<button type="button" class="svc" data-svcother="${esc(k)}" aria-pressed="${!!v.other}">其他需求</button>`}${svcAdd===k?'<button type="button" class="link" data-svcaddno>收起</button>':''}</div>`:''}${other}
- ${lines?`<div class="svclist">${lines}</div>`:''}${!showChips&&!(v.kindDone&&v.otherDone)?`<button type="button" class="link small" data-svcadd="${esc(k)}">＋ 添加需求</button>`:''}</div>`;}
-function svcSet(k,d,fn){return tx(()=>{const g=live().filter((x)=>okey(x)===k).sort((a,b)=>roomIdx(a.room)-roomIdx(b.room));if(!g.length)return false;const r=g[0];
- r.service=Object.assign({},r.service||{});const v=svcOf([r],d);delete v.done;delete v.doneAt;fn(v);if(!v.kind)v.kindDone='';if(!v.other)v.otherDone='';
- if(!v.kind&&!v.other)delete r.service[d];else r.service[d]=v;r.updatedAt=nowISO();});}
+/* 客房服务待办：登记即保存，直到标记完成；跨天保留。存在订单第一间房的 svc 列表里 */
+const SVC_PEND={'清理':'待清理','收垃圾':'待收垃圾'},SVC_DONE={'清理':'房间清理','收垃圾':'仅收垃圾'};
+let svcAdd='', svcOtherNew='', svcMod='';
+function localDay(iso){const t=new Date(iso);return isNaN(t)?'':t.getFullYear()+'-'+pad(t.getMonth()+1)+'-'+pad(t.getDate());}
+function svcList(r){let L=Array.isArray(r.svc)?r.svc:[];
+ if(!L.length&&r.service&&typeof r.service==='object'){Object.keys(r.service).sort().forEach((d)=>{const v=r.service[d]||{};const kd=v.kindDone||(v.done&&v.doneAt)||'',od=v.otherDone||(v.done&&v.doneAt)||'';
+  if(v.kind)L.push({id:'m'+d+'k',type:v.kind,text:'',createdAt:d+'T00:00:00',hold:false,holdNote:'',doneAt:kd});if(v.other)L.push({id:'m'+d+'o',type:'其他',text:v.other,createdAt:d+'T00:00:00',hold:false,holdNote:'',doneAt:od});});}
+ return L;}
+function svcTitle(t){return t.type==='其他'?'待办：'+t.text:SVC_PEND[t.type]||t.type;}
+function svcDoneTitle(t){return t.type==='其他'?t.text:SVC_DONE[t.type]||t.type;}
+function svcHTML(g,d){const k=okey(g[0]),L=svcList(g[0]);const pend=L.filter((t)=>!t.doneAt),done=L.filter((t)=>t.doneAt&&localDay(t.doneAt)===d);
+ const showEntry=!pend.length||svcAdd===k;const hasClean=pend.some((t)=>t.type==='清理'||t.type==='收垃圾');
+ const entry=showEntry?`<div class="svcrow">${hasClean?'':`<button type="button" class="svc" data-svcnew="${esc(k)}" data-type="清理">需要清理</button><button type="button" class="svc" data-svcnew="${esc(k)}" data-type="收垃圾">仅收垃圾</button>`}<button type="button" class="svc" data-svcothernew="${esc(k)}">其他需求</button>${pend.length?'<button type="button" class="link small" data-svcaddno>收起</button>':''}</div>`:'';
+ const otherNew=svcOtherNew===k?`<div class="svcedit"><input id="svcOtherNew" placeholder="如 加毛巾、换浴巾" maxlength="60"><button type="button" class="sm pri" data-svcothersave="${esc(k)}">保存</button><button type="button" class="sm" data-svcothercancel>取消</button></div>`:'';
+ const pline=(t)=>svcMod===t.id?`<div class="svcline edit"><div class="svcform">
+   ${t.type==='其他'?`<label>需求内容<input id="svcModText" value="${esc(t.text)}" maxlength="60"></label>`:`<div class="svct">${esc(svcTitle(t))}</div>`}
+   <label class="chk"><input type="checkbox" id="svcModHold"${t.hold?' checked':''}> ${t.type==='清理'?'暂不能清理':'暂不能处理'}</label>
+   <label>原因或约定时间（选填）<input id="svcModNote" value="${esc(t.holdNote||'')}" placeholder="如 客人还在休息，14:00 后再清理" maxlength="60"></label>
+   <div class="actions"><button type="button" class="sm danger" data-svcdel="${esc(k)}" data-tid="${esc(t.id)}">删除这条</button><span style="flex:1"></span><button type="button" class="sm" data-svcmodno>取消</button><button type="button" class="sm pri" data-svcmodsave="${esc(k)}" data-tid="${esc(t.id)}">保存</button></div></div></div>`
+  :`<div class="svcline pend${t.hold?' hold':''}"><div class="svcmain"><div class="svct">${esc(svcTitle(t))}${t.hold?` <span class="holdtag">· ${t.type==='清理'?'暂不能清理':'暂不能处理'}</span>`:''}</div>${t.holdNote?`<div class="svcnote2">${esc(t.holdNote)}</div>`:''}${t.createdAt&&localDay(t.createdAt)!==d&&localDay(t.createdAt)?`<div class="svcnote2 muted">${cn(localDay(t.createdAt))}登记</div>`:''}</div>
+   <div class="svcbtns"><button type="button" class="sm pri" data-svcdone="${esc(k)}" data-tid="${esc(t.id)}">标记完成</button><button type="button" class="sm" data-svcmod="${esc(t.id)}">修改</button></div></div>`;
+ const dline=(t)=>`<div class="svcline done"><span class="svct">${esc(svcDoneTitle(t))} · 已完成 · ${hm(t.doneAt)}</span><button type="button" class="link undo" data-svcundo="${esc(k)}" data-tid="${esc(t.id)}">撤销</button></div>`;
+ return `<div class="svcbox">${pend.length||done.length?`<div class="svclist">${pend.map(pline).join('')}${done.map(dline).join('')}</div>`:''}${entry}${otherNew}${!showEntry&&!otherNew?`<button type="button" class="link small" data-svcadd="${esc(k)}">＋ 添加需求</button>`:''}</div>`;}
+function svcUpdate(k,fn){return tx(()=>{const g=live().filter((x)=>okey(x)===k).sort((a,b)=>roomIdx(a.room)-roomIdx(b.room));if(!g.length)return false;const r=g[0];
+ const L=svcList(r).map((t)=>Object.assign({},t));if(fn(L)===false)return false;r.svc=L;delete r.service;r.updatedAt=nowISO();});}
+function svcPendTag(r){const L=svcList(orderOf(r)[0]||r).filter((t)=>!t.doneAt);if(!L.length)return '';const a=[];
+ if(L.some((t)=>t.type==='清理'))a.push('待清理');if(L.some((t)=>t.type==='收垃圾'))a.push('待收垃圾');const o=L.filter((t)=>t.type==='其他').length;if(o)a.push(o>1?'待办 '+o:'待办');return a.join(' · ');}
 function houseCard(g,d){const r=g[0];
  return `<article class="ticket house"><div class="thead"><button type="button" class="tname" data-open="${esc(r.id)}">${esc(r.name)}</button>${plates(g)}${rangeTag(r)}<span class="tact">${r.status==='已预订'?'<span class="pill p-warn">未登记到店</span>'+arriveCtl(g,d):(r.checkin===d?'<span class="stamp soft">本日到店'+(r.arrivedAt?' '+hm(r.arrivedAt):'')+'</span>':'')}</span></div>
  <div class="tmeta">${nightsOf(r)} 晚 · ${r.checkout===addDays(d,1)?'次日离店':cn(r.checkout)+'离店'}</div>
@@ -185,7 +194,7 @@ function viewToday(){const d=dayView,isToday=d===today(),act=live().filter((r)=>
  h+=`<section class="sec"><div class="sec-h"><h3>六间房 · 当晚</h3><button type="button" class="link" data-tab-go="calendar">房态日历 →</button></div><div class="rooms6">${ROOMS.map(([n])=>{const r=stay.find((x)=>x.room===n);
   if(!r)return `<div class="rm"><b>${n}</b><div class="gs">空房</div></div>`;
   const st=r.status==='已入住'?'<span class="ok">已入住</span>':`<span>${r.checkin===today()?'本日入住':cn(r.checkin)+'入住'}</span><span class="warnTxt">待到店</span>`;
-  const nx=r.checkout===addDays(d,1)?nextOf(r):null;const og=orderOf(r),sv=svcOf(og,d),svt=[sv.kind&&!sv.kindDone?(sv.kind==='清理'?'需清理':'收垃圾'):'',sv.other&&!sv.otherDone?'有需求':''].filter(Boolean).join(' · ');
+  const nx=r.checkout===addDays(d,1)?nextOf(r):null;const svt=svcPendTag(r);
   return `<div class="rm occ${r.status==='已入住'?'':' wait'}" data-open="${esc(r.id)}" role="button" tabindex="0"><b>${n}</b><div class="gn">${esc(r.name)}</div><div class="gs">${st}<span>${cn(r.checkout)}离店</span></div>${svt?`<div class="svtag">${svt}</div>`:''}${nx?`<div class="nx">次日入住${nx.arrival&&nx.arrival.time?' · 船 '+esc(nx.arrival.time):''}</div>`:''}</div>`;}).join('')}</div></section>`;
  h+=expSection(d);
  return h;}
@@ -309,14 +318,20 @@ function bindView(){const v=$('view');
  v.querySelectorAll('[data-done]').forEach((el)=>el.addEventListener('click',()=>{const id=el.dataset.done,i=Number(el.dataset.ti);if(tx(()=>{const r=all.find((x)=>x.id===id);if(!r||!r.tasks[i])return false;r.tasks[i].done=true;r.updatedAt=nowISO();}))toast('事项已完成');render();}));
  const fq=$('fq');if(fq){fq.addEventListener('input',()=>{filt.q=fq.value;const pos=fq.selectionStart;render();const n=$('fq');n.focus();try{n.setSelectionRange(pos,pos);}catch(e){}});
   [['fs','status'],['fc','channel'],['fm','month']].forEach(([id,k])=>$(id).addEventListener('change',()=>{filt[k]=$(id).value;render();}));}
- v.querySelectorAll('[data-svc]').forEach((el)=>el.addEventListener('click',()=>{const kind=el.dataset.kind;svcSet(el.dataset.svc,dayView,(v)=>{v.kind=v.kind===kind?'':kind;});render();}));
- v.querySelectorAll('[data-svcother]').forEach((el)=>el.addEventListener('click',()=>{svcEdit=el.dataset.svcother;render();const i=$('svcOther');if(i)i.focus();}));
+ const svcNow=()=>nowISO();
+ v.querySelectorAll('[data-svcnew]').forEach((el)=>el.addEventListener('click',()=>{const type=el.dataset.type;if(svcUpdate(el.dataset.svcnew,(L)=>{const i=L.findIndex((t)=>!t.doneAt&&(t.type==='清理'||t.type==='收垃圾'));if(i>=0){L[i].type=type;}else L.push({id:newId(),type,text:'',createdAt:svcNow(),hold:false,holdNote:'',doneAt:''});}))toast(SVC_PEND[type]+' 已登记');svcAdd='';render();}));
+ v.querySelectorAll('[data-svcothernew]').forEach((el)=>el.addEventListener('click',()=>{svcOtherNew=el.dataset.svcothernew;render();const i=$('svcOtherNew');if(i)i.focus();}));
+ v.querySelectorAll('[data-svcothercancel]').forEach((el)=>el.addEventListener('click',()=>{svcOtherNew='';render();}));
+ v.querySelectorAll('[data-svcothersave]').forEach((el)=>el.addEventListener('click',()=>{const val=$('svcOtherNew').value.trim();if(!val){toast('写一下需求内容');return;}if(svcUpdate(el.dataset.svcothersave,(L)=>{L.push({id:newId(),type:'其他',text:val,createdAt:svcNow(),hold:false,holdNote:'',doneAt:''});}))toast('待办已登记');svcOtherNew='';svcAdd='';render();}));
  v.querySelectorAll('[data-svcadd]').forEach((el)=>el.addEventListener('click',()=>{svcAdd=el.dataset.svcadd;render();}));
  v.querySelectorAll('[data-svcaddno]').forEach((el)=>el.addEventListener('click',()=>{svcAdd='';render();}));
- v.querySelectorAll('[data-svccancel]').forEach((el)=>el.addEventListener('click',()=>{svcEdit='';render();}));
- v.querySelectorAll('[data-svcsave]').forEach((el)=>el.addEventListener('click',()=>{const val=$('svcOther').value.trim();if(svcSet(el.dataset.svcsave,dayView,(v)=>{v.other=val;}))toast(val?'已记下需求':'已清除其他需求');svcEdit='';render();}));
- v.querySelectorAll('[data-svcdone]').forEach((el)=>el.addEventListener('click',()=>{const it=el.dataset.item;if(svcSet(el.dataset.svcdone,dayView,(v)=>{if(!v[it+'Done'])v[it+'Done']=nowISO();}))toast('已完成');svcAdd='';render();}));
- v.querySelectorAll('[data-svcundo]').forEach((el)=>el.addEventListener('click',()=>{const it=el.dataset.item;svcSet(el.dataset.svcundo,dayView,(v)=>{v[it+'Done']='';});render();}));
+ v.querySelectorAll('[data-svcmod]').forEach((el)=>el.addEventListener('click',()=>{svcMod=el.dataset.svcmod;render();}));
+ v.querySelectorAll('[data-svcmodno]').forEach((el)=>el.addEventListener('click',()=>{svcMod='';render();}));
+ v.querySelectorAll('[data-svcmodsave]').forEach((el)=>el.addEventListener('click',()=>{const tid=el.dataset.tid,txt=$('svcModText')?$('svcModText').value.trim():null,hold=$('svcModHold').checked,note=$('svcModNote').value.trim();
+  if(txt!==null&&!txt){toast('需求内容不能为空');return;}if(svcUpdate(el.dataset.svcmodsave,(L)=>{const t=L.find((x)=>x.id===tid);if(!t)return false;if(txt!==null)t.text=txt;t.hold=hold;t.holdNote=note;}))toast('已保存');svcMod='';render();}));
+ v.querySelectorAll('[data-svcdel]').forEach((el)=>el.addEventListener('click',()=>{const tid=el.dataset.tid;if(svcUpdate(el.dataset.svcdel,(L)=>{const i=L.findIndex((x)=>x.id===tid);if(i<0)return false;L.splice(i,1);}))toast('已删除这条待办');svcMod='';render();}));
+ v.querySelectorAll('[data-svcdone]').forEach((el)=>el.addEventListener('click',()=>{const tid=el.dataset.tid;if(svcUpdate(el.dataset.svcdone,(L)=>{const t=L.find((x)=>x.id===tid);if(!t||t.doneAt)return false;t.doneAt=svcNow();t.hold=false;}))toast('已完成');render();}));
+ v.querySelectorAll('[data-svcundo]').forEach((el)=>el.addEventListener('click',()=>{const tid=el.dataset.tid;if(svcUpdate(el.dataset.svcundo,(L)=>{const t=L.find((x)=>x.id===tid);if(!t)return false;t.doneAt='';}))toast('已撤销完成');render();}));
  v.querySelectorAll('[data-expand]').forEach((el)=>{const go=()=>{expanded.add(el.dataset.expand);render();};el.addEventListener('click',go);el.addEventListener('keydown',(e)=>{if(e.key==='Enter')go();});});
  v.querySelectorAll('[data-collapse]').forEach((el)=>el.addEventListener('click',()=>{expanded.delete(el.dataset.collapse);render();}));
  v.querySelectorAll('[data-paidleave]').forEach((el)=>el.addEventListener('click',()=>{const ids=el.dataset.paidleave;let name='',amt=0;
