@@ -498,3 +498,16 @@ fieldset.pick legend{color:var(--accent)}
 .debt.soft{background:var(--sand-soft);color:var(--sand)}
 .debt.inline{font-size:14px}
 .link.fold{justify-self:start;font-size:13px;color:var(--mute);padding:0}
+/* 每日客房服务 */
+.svcbox{border-top:1px dashed var(--line);padding-top:10px}
+.svcrow{display:flex;gap:8px;flex-wrap:wrap}
+.svc{padding:7px 14px;border-radius:999px;background:var(--soft);font-size:14px;border:1.5px solid transparent}
+.svc[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);font-weight:600}
+.svc:disabled{opacity:.6}
+.svcedit{display:flex;gap:8px;margin-top:8px;align-items:center}
+.svcedit input{flex:1;min-width:0}
+.svcnote{margin-top:8px;font-size:14px;background:var(--sky-soft);border-radius:10px;padding:8px 12px}
+.svcdone{margin-top:8px;display:flex;align-items:center;gap:6px;font-size:14px;color:var(--ok);font-weight:600}
+.svcbox.done .svc[aria-pressed="true"]{background:var(--soft);color:var(--mute)}
+.svcbox.done .svcnote{opacity:.6;text-decoration:line-through}
+.rm .svtag{font-size:12px;font-weight:700;color:var(--sand);margin-top:2px}
