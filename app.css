@@ -511,3 +511,10 @@ fieldset.pick legend{color:var(--accent)}
 .svcbox.done .svc[aria-pressed="true"]{background:var(--soft);color:var(--mute)}
 .svcbox.done .svcnote{opacity:.6;text-decoration:line-through}
 .rm .svtag{font-size:12px;font-weight:700;color:var(--sand);margin-top:2px}
+.svclist{display:grid;gap:6px;margin-top:8px}
+.svcline{display:flex;align-items:center;gap:8px;background:var(--sky-soft);border-radius:10px;padding:8px 12px;font-size:15px}
+.svcline .svct{flex:1;min-width:0;font-weight:600}
+.svcline .sm{padding:5px 12px}
+.svcline.done{background:var(--ok-soft)}
+.svcline.done .svct{color:var(--ink)}
+.svcok{color:var(--ok);font-weight:700;font-size:14px;white-space:nowrap}
