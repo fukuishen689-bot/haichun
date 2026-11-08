@@ -1,4 +1,4 @@
-const CACHE = 'haichun-zkb-v26';
+const CACHE = 'haichun-zkb-v27';
 const FILES = ['./', './index.html', './app.css', './app.js', './manifest.json', './icon-180.png', './icon-192.png', './icon-512.png', './hero.jpg'];
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(FILES)).then(() => self.skipWaiting()));
