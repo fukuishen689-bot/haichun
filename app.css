@@ -358,3 +358,54 @@ details{border:none;background:var(--soft);border-radius:12px}
 .roomsel button[aria-pressed="true"]{background:var(--accent-soft);color:var(--accent);border-color:var(--accent)}
 .roomsel button[aria-pressed="true"] span{color:var(--accent)}
 .sec-h h3,.tname,.rm b,.dlg-h h3,h2{font-weight:700}
+
+/* ================= v4：功能修正配套样式 ================= */
+:root{--mute:#6f7774}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--mute:#9aa29f}}
+:root[data-theme="dark"]{--mute:#9aa29f}
+.small{font-size:13px}.ink{color:var(--ink)}
+.warnTxt{color:var(--warn);font-weight:600}
+.ok{color:var(--ok);font-weight:600}
+.banner{display:flex;gap:12px;align-items:center;justify-content:space-between;background:var(--warn-soft);border-radius:var(--r);padding:12px 14px;margin-bottom:14px;font-size:13px;color:var(--ink)}
+.banner b{display:block;font-size:15px;color:var(--warn);margin-bottom:2px}
+.banner button{flex:0 0 auto}
+.hero-sum b small{font-size:13px;font-weight:600;color:var(--mute);margin-left:1px}
+.hero-sum i{font-style:normal;font-size:12px;color:var(--mute);margin-top:2px;font-weight:400}
+.hero-sum span{font-size:13px;color:var(--ink)}
+.ticket{padding:14px 16px;display:grid;gap:8px}
+.ticket .thead{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.ticket .tmeta{font-size:13px;color:var(--mute)}
+.ticket.mini{padding:12px 16px}
+.route{font-size:15px}
+.route b{font-size:18px;font-weight:700;font-variant-numeric:tabular-nums}
+.owe.big{font-size:16px}
+.arrive{font-size:15px;padding:8px 18px;border-radius:999px;background:var(--accent);color:var(--accent-ink);font-weight:600}
+.arrived{font-size:14px}
+.next{font-size:14px}
+.next b{font-variant-numeric:tabular-nums}
+.ticket.done .route,.ticket.done .tmeta{opacity:.7}
+.lrow{text-align:left;width:100%;color:inherit;font:inherit}
+.lrow .m{margin-top:3px}
+.lrow .m.ink{color:var(--ink)}
+.lrow .r{display:grid;gap:4px;justify-items:end}
+.lrow .money{font-size:13px;color:var(--mute);line-height:1.5}
+.row .t .plate{font-size:12px;margin-left:4px}
+.dhead{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.flabel{display:flex;gap:8px;align-items:baseline;font-size:13px;font-weight:500;color:var(--mute);margin-bottom:6px}
+.flabel b{color:var(--bad);font-weight:400}.flabel span{font-size:12px}
+.rrows{display:grid;gap:8px}
+.rrow{display:grid;grid-template-columns:52px 64px 1fr 1fr;gap:8px;align-items:end;background:var(--soft);border-radius:12px;padding:10px}
+.rrow .rname{font-weight:700;align-self:center}
+.rrow input{background:var(--panel)}
+@media (max-width:400px){.rrow{grid-template-columns:44px 56px 1fr 1fr;gap:6px}}
+fieldset.pick{border:none;background:var(--accent-soft);border-radius:12px;padding:10px 12px 12px;margin:0;display:grid;gap:10px}
+fieldset.pick legend{float:left;font-weight:700;font-size:14px;padding:0;margin-bottom:2px;color:var(--accent)}
+fieldset.pick input,fieldset.pick select{background:var(--panel)}
+.shipnote{margin:0;font-size:13px;color:var(--warn);font-weight:600}
+button.plain{background:none;border:none;padding:0;text-align:left;color:inherit;font:inherit;border-radius:0;flex:1;min-width:0}
+.confirm.block{display:block;background:var(--warn-soft);border-radius:12px;padding:12px 14px;margin-top:10px;font-size:14px}
+.rm.wait{background:var(--panel);box-shadow:inset 0 0 0 1.5px var(--accent-soft)}
+.rm .gs{font-size:12px}
+.rm .gs .ok,.rm .gs .warnTxt{font-weight:600}
+.cal td button.wait{background:var(--accent-soft);color:var(--accent)}
+.rm div{color:var(--ink)}
