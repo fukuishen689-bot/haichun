@@ -462,3 +462,9 @@ button.plain{background:none;border:none;padding:0;text-align:left;color:inherit
 .banner b{color:var(--sand)}
 fieldset.pick{background:var(--sky-soft)}
 fieldset.pick legend{color:var(--accent)}
+.deptime{display:block;width:100%;font-size:15px;padding:6px 0;cursor:pointer}
+.deptime b{font-size:18px;font-weight:700;font-variant-numeric:tabular-nums}
+.depedit{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.depedit span{font-size:14px;font-weight:600}
+.depedit input{width:auto;flex:0 0 130px}
+.arrive.leave{background:var(--sand-soft);color:var(--sand)}
