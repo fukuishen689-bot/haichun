@@ -417,3 +417,48 @@ button.plain{background:none;border:none;padding:0;text-align:left;color:inherit
 .hero-photo .hero-date b{color:#fff;text-shadow:0 1px 8px rgba(0,0,0,.25)}
 .hero-photo .hero-date span{color:rgba(255,255,255,.9)}
 @media (min-width:700px){.hero-photo{aspect-ratio:auto;height:230px}}
+
+/* ================= v5：与首页暖调照片呼应 ================= */
+/* 取色：暮色海天的深蓝灰 + 檐下灯光的琥珀 + 白墙的暖白 */
+:root{
+ --bg:#f5f2ec;--panel:#fffdf9;--ink:#232a2e;--mute:#6e7479;--line:#e8e2d8;--soft:#efebe3;
+ --accent:#33505d;--accent-ink:#fffdf9;--accent-soft:#e5ebed;--occ:#e5ebed;--occ-ink:#232a2e;
+ --sand:#a8743a;--sand-soft:#f6ecdd;--warn:#a8743a;--warn-soft:#f7eedf;--ok:#3f6f5c;--ok-soft:#e5efe9;--bad:#a5503f;--bad-soft:#f6e7e2;
+ --sky:#55707f;--sky-soft:#edf1f3;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+ --bg:#14181b;--panel:#1c2125;--ink:#e9e6e0;--mute:#9a9fa3;--line:#2a3035;--soft:#232a2e;
+ --accent:#9db6c2;--accent-ink:#14181b;--accent-soft:#25313a;--occ:#25313a;--occ-ink:#e9e6e0;
+ --sand:#d9a868;--sand-soft:#2e271d;--warn:#d9a868;--warn-soft:#2e271d;--ok:#8fc0a6;--ok-soft:#1d2b25;--bad:#e09584;--bad-soft:#33221f;--sky:#a9bcc6;--sky-soft:#222a30}}
+:root[data-theme="dark"]{--bg:#14181b;--panel:#1c2125;--ink:#e9e6e0;--mute:#9a9fa3;--line:#2a3035;--soft:#232a2e;--accent:#9db6c2;--accent-ink:#14181b;--accent-soft:#25313a;--occ:#25313a;--occ-ink:#e9e6e0;--sand:#d9a868;--sand-soft:#2e271d;--warn:#d9a868;--warn-soft:#2e271d;--ok:#8fc0a6;--ok-soft:#1d2b25;--bad:#e09584;--bad-soft:#33221f;--sky:#a9bcc6;--sky-soft:#222a30}
+
+/* 各页顶部：同一张照片的不同局部，做成窄条 */
+.page-head{position:relative;height:96px;border-radius:16px;overflow:hidden;margin-bottom:10px;background:var(--accent-soft)}
+.page-head img{width:100%;height:100%;object-fit:cover;display:block}
+.page-head::after{content:"";position:absolute;inset:0;background:linear-gradient(to right,rgba(20,26,30,.62),rgba(20,26,30,.15) 70%)}
+.page-head h2{position:absolute;left:16px;bottom:12px;z-index:1;color:#fff;margin:0;font-size:22px;font-weight:700;letter-spacing:.04em}
+
+/* 状态用色：待到店、待收 = 灯光琥珀；已入住 = 海天蓝灰 */
+.rm.occ{background:var(--accent-soft)}
+.rm.wait{background:var(--panel);box-shadow:inset 0 0 0 1.5px var(--sand-soft)}
+.rm .gs .warnTxt,.warnTxt{color:var(--sand)}
+.rm .gs .ok{color:var(--accent)}
+.arrived{color:var(--accent)}
+.cal td button{background:var(--accent);color:var(--accent-ink)}
+.cal td button.wait{background:var(--sand-soft);color:var(--sand)}
+.cal thead th.td{color:var(--sand)}
+.cal thead th.we{color:var(--mute)}
+.hero-sum span:nth-child(1) b{color:var(--accent)}
+.next{background:var(--sky-soft)}
+.tnote{background:var(--sand-soft)}
+.p-booked{background:var(--accent-soft);color:var(--accent)}
+.p-in{background:var(--sand-soft);color:var(--sand)}
+.p-out{background:var(--ok-soft);color:var(--ok)}
+.p-warn{background:var(--sand-soft);color:var(--sand)}
+.bar i{background:var(--accent);opacity:.85}
+.tabs button[aria-current="page"]{background:var(--accent-soft);color:var(--accent)}
+.chip{background:var(--soft);color:var(--mute)}
+.banner{background:var(--sand-soft)}
+.banner b{color:var(--sand)}
+fieldset.pick{background:var(--sky-soft)}
+fieldset.pick legend{color:var(--accent)}
