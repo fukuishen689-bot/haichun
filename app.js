@@ -13,6 +13,7 @@ const PORTS=['半升洞','沈家湾','东福山','青浜岛'];
 const KEY='haichun.zkb.v2', OLD_KEY='haichun.bookings.v1', BKEY='haichun.zkb.lastBackup', EKEY='haichun.zkb.exp.v1';
 const EXP_CATS=['早餐食材','员工菜钱','员工餐费','维修五金','水','饮料','接待招待','客人代买','其他'];
 const EXP_PAY=['微信','支付宝','现金','其他'];
+const ST_LABEL={'已入住':'已到店','已退房':'已离店'};const stl=(x)=>ST_LABEL[x]||x;
 const STATUS_CLS={'已预订':'p-booked','已入住':'p-in','已退房':'p-out','已取消':'p-cancel','待确认':'p-pending'};
 const BACKUP_DAYS=7;
 
@@ -203,7 +204,7 @@ function viewToday(){const d=dayView,isToday=d===today(),act=live().filter((r)=>
  if(pend.length)h+=`<section class="sec"><div class="sec-h"><h3>待确认的预订</h3><span>不占房，确认后改成已预订</span></div><div class="list">${pend.map((g)=>ledgerRow(g)).join('')}</div></section>`;
  h+=`<section class="sec"><div class="sec-h"><h3>当晚预订房态</h3><span class="muted small">已预订 ${stay.length}/6 间 · 已到店 ${checkedIn}</span></div><div class="rooms6">${ROOMS.map(([n])=>{const r=stay.find((x)=>x.room===n);
   if(!r)return `<div class="rm"><b>${n}</b><div class="gs">未预订</div></div>`;
-  const st=r.status==='已入住'?'<span class="ok">已入住</span>':`<span>${r.checkin===today()?'本日入住':cn(r.checkin)+'入住'}</span><span class="warnTxt">待到店</span>`;
+  const st=r.status==='已入住'?'<span class="ok">已到店</span>':`<span>${r.checkin===today()?'本日入住':cn(r.checkin)+'入住'}</span><span class="warnTxt">待到店</span>`;
   const nx=r.checkout===addDays(d,1)?nextOf(r):null;const svt=svcPendTag(r);
   return `<div class="rm occ${r.status==='已入住'?'':' wait'}" data-open="${esc(r.id)}" role="button" tabindex="0"><b>${n}</b><div class="gn">${esc(r.name)}</div><div class="gs">${st}<span>${cn(r.checkout)}离店</span></div>${svt?`<div class="svtag">${svt}</div>`:''}${nx?`<div class="nx">次日入住${nx.arrival&&nx.arrival.time?' · 船 '+esc(nx.arrival.time):''}</div>`:''}</div>`;}).join('')}</div></section>`;
  h+=expSection(d);
@@ -232,7 +233,7 @@ function ledgerRow(g){const r=g[0],s=sumOrder(g),[ps,pc]=payState(s,r.status);
  return `<button type="button" class="row lrow" data-open="${esc(r.id)}"><div class="main"><div class="t">${esc(r.name)} ${plates(g)}</div>
  <div class="m ink">${cn(r.checkin)} 入住 → ${cn(r.checkout)} 离店 · ${s.nights} 晚${g.length>1?' · '+g.length+' 间 · '+s.roomNights+' 间夜':''}</div>
  <div class="m">${esc(pickTxt(r))}</div><div class="m">${esc(r.channel)}${r.phone?' · '+esc(r.phone):''}</div></div>
- <div class="r"><span class="pill ${STATUS_CLS[r.status]}">${esc(r.status)}</span><br><span class="pill ${pc}">${ps}</span>
+ <div class="r"><span class="pill ${STATUS_CLS[r.status]}">${esc(stl(r.status))}</span><br><span class="pill ${pc}">${ps}</span>
  <div class="money">${s.amount!=null?'房费 '+yuan(s.amount):'房费待补'}<br>已收 ${yuan(s.net)}${s.owe>0?`<br><b class="owe">待收 ${yuan(s.owe)}</b>`:''}</div></div></button>`;}
 function filtered(){const q=filt.q.trim().toLowerCase();return live().filter((r)=>(!filt.status||r.status===filt.status)&&(!filt.channel||r.channel===filt.channel)&&(!filt.month||r.checkin.slice(0,7)===filt.month)
  &&(!q||[r.name,r.phone,r.reference,r.notes,r.group,r.origin,r.room].join(' ').toLowerCase().includes(q)));}
@@ -240,7 +241,7 @@ function viewLedger(){const rows=filtered(),months=[...new Set(live().map((r)=>r
  const orders=groupOrders(rows).sort((a,b)=>b[0].checkin.localeCompare(a[0].checkin)||roomIdx(a[0].room)-roomIdx(b[0].room));
  let h=`<h2>预订台账</h2><p class="lede">一单可以包含多间房；收款按整单记，不会重复计算。</p>
  <div class="filters"><input id="fq" placeholder="搜称呼、电话、房间、订单号、备注" value="${esc(filt.q)}" aria-label="搜索">
- <select id="fs" aria-label="状态"><option value="">全部状态</option>${STATUSES.map((s)=>`<option${filt.status===s?' selected':''}>${s}</option>`).join('')}</select>
+ <select id="fs" aria-label="状态"><option value="">全部状态</option>${STATUSES.map((s)=>`<option value="${s}"${filt.status===s?' selected':''}>${stl(s)}</option>`).join('')}</select>
  <select id="fc" aria-label="渠道"><option value="">全部渠道</option>${CHANNELS.map((s)=>`<option${filt.channel===s?' selected':''}>${s}</option>`).join('')}</select>
  <select id="fm" aria-label="入住月份"><option value="">全部月份</option>${months.map((m)=>`<option value="${m}"${filt.month===m?' selected':''}>${Number(m.slice(5))}月入住（${m.slice(0,4)}）</option>`).join('')}</select></div>
  <p class="muted small" style="margin:0 0 8px">当前 ${orders.length} 单 · ${rows.length} 间房记录</p>`;
@@ -253,8 +254,9 @@ function viewCalendar(){const ds=[...Array(14)].map((_,i)=>addDays(calStart,i)),
  <div class="daynav"><button type="button" class="sm" data-cal="-7">前一周</button><input type="date" id="calPick" value="${esc(calStart)}" aria-label="起始日期"><button type="button" class="sm" data-cal="7">后一周</button>${calStart===t?'':'<button type="button" class="sm" data-cal="0">从今天看</button>'}</div>
  <div class="cal-wrap"><table class="cal"><thead><tr><th class="room"></th>${ds.map((d,i)=>{const w=new Date(d+'T00:00:00').getDay();return `<th class="${d===t?'td':(w===0||w===6)?'we':''}">${i===0||d.slice(8)==='01'?Number(d.slice(5,7))+'月':''}${Number(d.slice(8))}日<br>${wd(d).slice(1)}</th>`;}).join('')}</tr></thead><tbody>`;
  ROOMS.forEach(([n])=>{h+=`<tr><th class="room">${n}</th>`;ds.forEach((d,i)=>{const r=live().find((x)=>ACTIVE.includes(x.status)&&x.room===n&&x.checkin<=d&&x.checkout>d);
-  if(!r){h+='<td></td>';return;}const first=r.checkin===d||i===0;h+=`<td><button type="button" class="${first?'':'cont'}${r.status==='已预订'?' wait':''}" data-open="${esc(r.id)}" aria-label="${esc(n+' '+cn(d)+' '+r.name)}">${esc(r.name)}</button></td>`;});h+='</tr>';});
- return h+`</tbody></table></div><p class="legend">深色为已入住或已退房，浅色为已预订待到店 · 「待确认」「已取消」不占房 · 手机上可左右滑动。</p>`;}
+  if(!r){h+='<td></td>';return;}const first=r.checkin===d||i===0;const cs=r.status==='已预订'?'wait':r.status==='已退房'?'gone':'';const lab=r.status==='已预订'?'待到店':stl(r.status);
+  h+=`<td><button type="button" class="${first?'':'cont'} ${cs}" data-open="${esc(r.id)}" aria-label="${esc(n+' '+cn(d)+' '+r.name+' '+lab)}">${first?`<span class="cn">${esc(r.name)}</span><span class="cs">${lab}</span>`:''}</button></td>`;});h+='</tr>';});
+ return h+`</tbody></table></div><div class="legend"><span><i class="lgd wait"></i>待到店</span><span><i class="lgd in"></i>已到店</span><span><i class="lgd gone"></i>已离店</span><span class="muted">「待确认」「已取消」不占房 · 可左右滑动</span></div>`;}
 
 /* ---------- 经营概览 ---------- */
 function monthRange(m){const s=m+'-01';const d=new Date(s+'T00:00:00');d.setMonth(d.getMonth()+1);return [s,d.getFullYear()+'-'+pad(d.getMonth()+1)+'-01'];}
@@ -273,12 +275,12 @@ function viewStats(){const [s,e]=monthRange(statMonth);const recs=live();
  return `<h2>经营概览</h2><p class="lede">只统计这本台账里登记过的订单。</p>
  <div class="daynav"><select id="statM" aria-label="统计月份" style="width:auto">${months.map((m)=>`<option value="${m}"${m===statMonth?' selected':''}>${mlabel(m)}</option>`).join('')}</select></div>
  <div class="grid3"><div class="kpi"><div class="l">已登记间夜</div><div class="v">${nights}<small>间夜</small></div><div class="s">按住宿日 · 不含待确认、取消</div></div>
- <div class="kpi"><div class="l">分摊房费</div><div class="v">${yuan(alloc)}<small>元</small></div><div class="s">${nights?'有金额的 '+knownN+'/'+nights+' 间夜':'—'}</div></div>
+ <div class="kpi"><div class="l">本月住宿房费</div><div class="v">${yuan(alloc)}<small>元</small></div><div class="s">按住宿日分摊 · ${nights?'有金额 '+knownN+'/'+nights+' 间夜':'—'}</div></div>
  <div class="kpi"><div class="l">新增预订</div><div class="v">${booked.length}<small>单</small></div><div class="s">${bookedR.length} 间房记录 · 取消 ${canc.length} 单${avgLead!=null?' · 平均提前 '+avgLead.toFixed(1)+' 天':''}</div></div></div>
  <section class="sec"><div class="sec-h"><h3>各房间已登记间夜</h3><span>入住日计入，离店日不计</span></div><div class="card bars">${byRoom.map((x)=>`<div class="bar"><span>${x.n}</span><span class="track"><i style="width:${(x.v/maxR*100).toFixed(1)}%"></i></span><span>${x.v} 间夜</span></div>`).join('')}</div></section>
- <section class="sec"><div class="sec-h"><h3>新增预订来自哪里</h3><span>按预订日 · 按单计 · 含取消</span></div>${ch.length?`<div class="card bars">${ch.map((x)=>`<div class="bar"><span>${esc(x.c)}</span><span class="track"><i style="width:${(x.v/maxC*100).toFixed(1)}%"></i></span><span>${x.v} 单</span></div>`).join('')}</div>`:'<div class="empty">这个月还没有新增预订</div>'}</section>
+ <section class="sec"><div class="sec-h"><h3>预订渠道分布</h3><span>按预订日 · 按单计 · 含取消</span></div>${ch.length?`<div class="card bars">${ch.map((x)=>`<div class="bar"><span>${esc(x.c)}</span><span class="track"><i style="width:${(x.v/maxC*100).toFixed(1)}%"></i></span><span>${x.v} 单</span></div>`).join('')}</div>`:'<div class="empty">这个月还没有新增预订</div>'}</section>
  ${advHTML(s,e)}
- <p class="note">分摊房费 = 每间房房费 ÷ 总晚数 × 本月住宿晚数，不是财务收入，不含佣金和退款；金额没填的间夜不按 0 元算。没有完整的可售房晚数据，所以不算入住率和 RevPAR。</p>`;}
+ <p class="note">本月住宿房费 = 每间房房费 ÷ 总晚数 × 本月住宿晚数，不是财务收入，不含佣金和退款；金额没填的间夜不按 0 元算。没有完整的可售房晚数据，所以不算入住率和 RevPAR。</p>`;}
 function rangeTxt(list){if(!list.length)return '';const ds=list.map((x)=>x.date).sort();return ds[0]===ds[ds.length-1]?cn(ds[0]):cn(ds[0])+'–'+cn(ds[ds.length-1]);}
 function advHTML(s,e){const mx=liveExp().filter((x)=>x.date>=s&&x.date<e),pendAll=liveExp().filter((x)=>!x.settled).sort((a,b)=>a.date.localeCompare(b.date));
  const mPend=mx.filter((x)=>!x.settled),settledRecent=liveExp().filter((x)=>x.settled).sort((a,b)=>(b.settledAt||'').localeCompare(a.settledAt||'')).slice(0,10);
@@ -404,7 +406,7 @@ function drawDetail(id){const d=$('detail'),r0=all.find((x)=>x.id===id);if(!r0){
  const ids=new Set(g.map((x)=>x.id));const cs=g.map((x)=>conflictOf(x,ids)).filter(Boolean);
  d.innerHTML=`<div class="dlg"><div class="dlg-h"><h3>${esc(r.name)}</h3><button type="button" class="sm" data-x>关闭</button></div><div class="dlg-b">
  ${cs.length?`<div class="conflict bad">${cs.map((c)=>esc(c.room)+' 和 '+esc(c.name)+'（'+cn(c.checkin)+'–'+cn(c.checkout)+'）重叠').join('；')}，请核对。</div>`:''}
- <div class="dhead">${plates(g)}<span class="pill ${STATUS_CLS[r.status]}">${esc(r.status)}</span><span class="pill ${pc}">${ps}</span></div>
+ <div class="dhead">${plates(g)}<span class="pill ${STATUS_CLS[r.status]}">${esc(stl(r.status))}</span><span class="pill ${pc}">${ps}</span></div>
  <dl class="kv"><dt>住宿</dt><dd>${cn(r.checkin)} 入住 → ${cn(r.checkout)} 离店 · ${s.nights} 晚${g.length>1?' · '+g.length+' 间 · '+s.roomNights+' 间夜':''}</dd>
  ${r.arrivedAt?`<dt>到店</dt><dd>${cn(r.arrivedAt.slice(0,10))} ${hm(r.arrivedAt)}</dd>`:''}
  <dt>电话</dt><dd>${r.phone?esc(r.phone):'未记录'}</dd>
@@ -417,7 +419,7 @@ function drawDetail(id){const d=$('detail'),r0=all.find((x)=>x.id===id);if(!r0){
  ${r.group?`<dt>同行编号</dt><dd>${esc(r.group)}</dd>`:''}${r.origin?`<dt>客源地</dt><dd>${esc(r.origin)}</dd>`:''}
  <dt>备注</dt><dd>${r.notes?esc(r.notes).replace(/\n/g,'<br>'):'暂无'}</dd>
  <dt>事项</dt><dd>${(r.tasks||[]).length?r.tasks.map((t,i)=>`<label class="chk"><input type="checkbox" data-task="${i}"${t.done?' checked':''}> ${t.priority==='重要'?'<b style="color:var(--bad)">重要</b> ':''}${esc(t.text)}${t.due?' · '+cn(t.due):''}</label>`).join(''):'暂无'}</dd></dl>
- ${r0.deleted?'':`<label>修改整单状态<select id="dStatus">${STATUSES.map((x)=>`<option${x===r.status?' selected':''}>${x}</option>`).join('')}</select></label>`}
+ ${r0.deleted?'':`<label>修改整单状态<select id="dStatus">${STATUSES.map((x)=>`<option value="${x}"${x===r.status?' selected':''}>${stl(x)}</option>`).join('')}</select></label>`}
  </div><div class="dlg-f">${r0.deleted?'':(detailConfirm?`<span class="confirm">整单${g.length>1?'（'+g.length+' 间）':''}移入回收站？之后可以恢复。<button type="button" class="sm danger" id="dDelYes">移入回收站</button><button type="button" class="sm" id="dDelNo">保留</button></span>`:`<button type="button" class="sm" id="dDel">删除</button>`)+
  (s.owe>0?'<button type="button" class="sm" id="dPaid">尾款已收齐</button>':'')+'<button type="button" class="pri" id="dEdit">编辑预订</button>'}</div></div>`;
  d.querySelector('[data-x]').onclick=()=>d.close();
@@ -425,7 +427,7 @@ function drawDetail(id){const d=$('detail'),r0=all.find((x)=>x.id===id);if(!r0){
  d.querySelectorAll('[data-task]').forEach((el)=>el.onchange=()=>{const i=Number(el.dataset.task),val=el.checked;tx(()=>{const x=all.find((y)=>y.id===r.id);if(!x||!x.tasks[i])return false;x.tasks[i].done=val;x.updatedAt=nowISO();});drawDetail(id);render();});
  if($('dStatus'))$('dStatus').onchange=()=>{const ns=$('dStatus').value;const gs=byIds(gids);const idset=new Set(gs.map((x)=>x.id));
   const cc=gs.map((x)=>conflictOf(Object.assign({},x,{status:ns}),idset)).find(Boolean);if(cc){toast(cc.room+' 这几天已被 '+cc.name+' 占用，不能改成'+ns);$('dStatus').value=r.status;return;}
-  if(tx(()=>{const t=nowISO();byIds(gids).forEach((x)=>{x.status=ns;if(ns==='已入住'&&!x.arrivedAt)x.arrivedAt=t;if(ns==='已预订')x.arrivedAt='';x.updatedAt=t;});}))toast('整单状态已改为'+ns);drawDetail(id);render();};
+  if(tx(()=>{const t=nowISO();byIds(gids).forEach((x)=>{x.status=ns;if(ns==='已入住'&&!x.arrivedAt)x.arrivedAt=t;if(ns==='已预订')x.arrivedAt='';x.updatedAt=t;});}))toast('整单状态已改为'+stl(ns));drawDetail(id);render();};
  if($('dPaid'))$('dPaid').onclick=()=>{if(tx(()=>{byIds(gids).forEach((x)=>{if(x.amount!=null&&x.status!=='已取消'){x.paid=Math.round(cents(x.amount)+(cents(x.refund)||0))/100;x.updatedAt=nowISO();}});}))toast('已记为尾款收齐');drawDetail(id);render();};
  if($('dEdit'))$('dEdit').onclick=()=>{d.close();openEditor(id);};
  if($('dDel'))$('dDel').onclick=()=>{detailConfirm=true;drawDetail(id);};
@@ -472,7 +474,7 @@ function drawEditor(){const d=$('editor'),r=ed;
   <div class="field-row"><label>预订渠道<select id="eChan">${CHANNELS.map((c)=>`<option${c===r.channel?' selected':''}>${c}</option>`).join('')}</select></label><label>实际预订日<input type="date" id="eBk" value="${esc(r.bookingDate)}"></label></div>
   <div class="field-row"><label>订单号（OTA 选填）<input id="eRef" value="${esc(r.reference)}"></label><label>客源地<input id="eOrigin" value="${esc(r.origin)}" placeholder="如 上海"></label></div>
   ${r.group?`<label>同行编号（旧版字段）<input id="eGroup" value="${esc(r.group)}"></label>`:''}
-  ${r._isNew?'':`<label>订单状态<select id="eStatus">${STATUSES.map((x)=>`<option${x===r.status?' selected':''}>${x}</option>`).join('')}</select></label>`}
+  ${r._isNew?'':`<label>订单状态<select id="eStatus">${STATUSES.map((x)=>`<option value="${x}"${x===r.status?' selected':''}>${stl(x)}</option>`).join('')}</select></label>`}
  </div></details>
  <details${(r.tasks||[]).length?' open':''}><summary>事项（需要逐项跟进时添加）</summary><div class="inner" id="eTasks"></div><div class="actions"><button type="button" class="sm" id="eAddTask">添加事项</button></div></details>
  </div><div class="dlg-f"><p class="err" id="eErr" role="alert"></p>${edConfirmClose?'<span class="confirm">还没保存，放弃本次修改？<button type="button" class="sm danger" id="edDiscard">放弃</button><button type="button" class="sm" id="edKeep">继续编辑</button></span>':'<button type="button" id="edCancel">取消</button><button type="submit" class="pri">保存预订</button>'}</div></form>`;
