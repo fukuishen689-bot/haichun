@@ -90,12 +90,12 @@ function pickTxt(r){if(r.pickup==='无需接船')return '无需接船';const l=r
 let tab='today', dayView=today(), calStart=today(), statMonth=today().slice(0,7);
 const filt={q:'',status:'',channel:'',month:''};
 let expOpen=false, expEdit='', expDel='', settleAsk='', pendingPurge=false, swReady=false, detailConfirm=false;
-function setTab(t){tab=t;document.querySelectorAll('#tabs button').forEach((b)=>{if(b.dataset.tab===t)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');});
+function setTab(t){tab=t;const nt=(t==='stats'||t==='backup')?'more':t;document.querySelectorAll('#tabs button').forEach((b)=>{if(b.dataset.tab===nt)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');});$('newBtn').hidden=!(t==='today'||t==='ledger'||t==='calendar');
  try{history.replaceState(null,'','#'+t);}catch(e){}render();window.scrollTo(0,0);}
 document.querySelectorAll('#tabs button').forEach((b)=>b.addEventListener('click',()=>setTab(b.dataset.tab)));
 $('newBtn').addEventListener('click',()=>openEditor(null));
 function render(){const v=$('view');
- if(tab==='today')v.innerHTML=viewToday();else if(tab==='ledger')v.innerHTML=viewLedger();else if(tab==='calendar')v.innerHTML=viewCalendar();else if(tab==='stats')v.innerHTML=viewStats();else v.innerHTML=viewBackup();
+ if(tab==='today')v.innerHTML=viewToday();else if(tab==='ledger')v.innerHTML=viewLedger();else if(tab==='calendar')v.innerHTML=viewCalendar();else if(tab==='stats')v.innerHTML=backBar()+viewStats();else if(tab==='more')v.innerHTML=viewMore();else v.innerHTML=backBar()+viewBackup();
  bindView();}
 
 /* ---------- 今日安排 ---------- */
@@ -156,7 +156,7 @@ function svcList(r){let L=Array.isArray(r.svc)?r.svc:[];
 function svcName(t){return t.type==='其他'?t.text:SVC_NAME[t.type]||t.type;}
 function svcTitle(t){return t.type==='清理'?'待续住打扫':t.type==='收垃圾'?'待收垃圾':'待'+t.text;}
 function svcHTML(g,d){const k=okey(g[0]),L=svcList(g[0]);const pend=L.filter((t)=>!t.doneAt),done=L.filter((t)=>t.doneAt&&localDay(t.doneAt)===d);
- const entry=svcAdd===k?`<div class="svcpick"><label class="chk"><input type="checkbox" id="svcA"> 续住打扫</label><label class="chk"><input type="checkbox" id="svcC"> 其他</label>
+const entry=false?`<div class="svcpick"><label class="chk"><input type="checkbox" id="svcA"> 续住打扫</label><label class="chk"><input type="checkbox" id="svcC"> 其他</label>
   <input id="svcCText" placeholder="其他需求的具体内容，如 加毛巾" maxlength="60" hidden>
   <div class="actions"><button type="button" class="sm" data-svcaddno>取消</button><button type="button" class="sm pri" data-svcaddsave="${esc(k)}">保存</button></div></div>`:'';
  const pline=(t)=>svcMod===t.id?`<div class="svcline edit"><div class="svcform">
@@ -167,7 +167,7 @@ function svcHTML(g,d){const k=okey(g[0]),L=svcList(g[0]);const pend=L.filter((t)
   :`<div class="svcline pend${t.hold?' hold':''}"><div class="svcmain"><div class="svct">${esc(svcTitle(t))}${t.hold?` <span class="holdtag">· ${t.type==='清理'?'暂不能清理':'暂不能处理'}</span>`:''}</div>${t.holdNote?`<div class="svcnote2">${esc(t.holdNote)}</div>`:''}${t.createdAt&&localDay(t.createdAt)!==d&&localDay(t.createdAt)?`<div class="svcnote2 muted">${cn(localDay(t.createdAt))}登记</div>`:''}</div>
    <div class="svcbtns"><button type="button" class="sm pri" data-svcdone="${esc(k)}" data-tid="${esc(t.id)}">完成</button><button type="button" class="sm" data-svcmod="${esc(t.id)}">修改</button></div></div>`;
  const dline=(t)=>`<div class="svcline done"><span class="svct">${esc(svcName(t))} · 已完成 ${hm(t.doneAt)}</span><button type="button" class="link undo" data-svcundo="${esc(k)}" data-tid="${esc(t.id)}">撤销</button></div>`;
- return `<div class="svcbox">${pend.length||done.length?`<div class="svclist">${pend.map(pline).join('')}${done.map(dline).join('')}</div>`:''}${entry||`<button type="button" class="sm addsvc" data-svcadd="${esc(k)}">＋ 添加需求</button>`}</div>`;}
+ return `<div class="svcbox">${pend.length||done.length?`<div class="svclist">${pend.map(pline).join('')}${done.map(dline).join('')}</div>`:''}<button type="button" class="sm addsvc" data-svcadd="${esc(k)}">＋ 添加需求</button></div>`;}
 function svcUpdate(k,fn){return tx(()=>{const g=live().filter((x)=>okey(x)===k).sort((a,b)=>roomIdx(a.room)-roomIdx(b.room));if(!g.length)return false;const r=g[0];
  const L=svcList(r).map((t)=>Object.assign({},t));if(fn(L)===false)return false;r.svc=L;delete r.service;r.updatedAt=nowISO();});}
 function svcPendTag(r){const L=svcList(orderOf(r)[0]||r).filter((t)=>!t.doneAt);if(!L.length)return '';const a=[];
@@ -228,6 +228,14 @@ function expSection(d){const dx=liveExp().filter((x)=>x.date===d).sort((a,b)=>(a
  ${ex||expOpen?expForm(ex):'<div class="actions"><button type="button" class="pri" id="expNew">新增支出</button></div>'}</section>`;}
 
 function pageHead(t,pos){return `<div class="page-head"><img src="hero.jpg" alt="" decoding="async" style="object-position:${pos}"><h2>${t}</h2></div>`;}
+/* ---------- 更多 ---------- */
+function backBar(){return '<button type="button" class="back" data-tab-go="more">‹ 更多</button>';}
+function viewMore(){const l=lastBackup();const trash=all.filter((r)=>r.deleted).length;
+ return `<h2>更多</h2><div class="list menu">
+ <button type="button" class="row mrow" data-tab-go="stats"><div class="main"><div class="t">经营概览</div><div class="m">本月间夜、住宿房费、预订渠道、垫付总计</div></div><span class="chev">›</span></button>
+ <button type="button" class="row mrow" data-tab-go="backup"><div class="main"><div class="t">备份与导出</div><div class="m">${l?'上次备份 '+cn(l.slice(0,10)):'还没有备份过'} · 对账表 · 回收站${trash?' '+trash+' 条':''}</div></div><span class="chev">›</span></button>
+ </div><p class="note">数据仅保存在当前浏览器，未开启跨设备同步。</p>`;}
+
 /* ---------- 预订台账 ---------- */
 function ledgerRow(g){const r=g[0],s=sumOrder(g),[ps,pc]=payState(s,r.status);
  return `<button type="button" class="row lrow" data-open="${esc(r.id)}"><div class="main"><div class="t">${esc(r.name)} ${plates(g)}</div>
@@ -331,14 +339,8 @@ function bindView(){const v=$('view');
  const fq=$('fq');if(fq){fq.addEventListener('input',()=>{filt.q=fq.value;const pos=fq.selectionStart;render();const n=$('fq');n.focus();try{n.setSelectionRange(pos,pos);}catch(e){}});
   [['fs','status'],['fc','channel'],['fm','month']].forEach(([id,k])=>$(id).addEventListener('change',()=>{filt[k]=$(id).value;render();}));}
  const svcNow=()=>nowISO();
- v.querySelectorAll('[data-svcadd]').forEach((el)=>el.addEventListener('click',()=>{svcAdd=el.dataset.svcadd;render();}));
- if($('svcC'))$('svcC').addEventListener('change',()=>{$('svcCText').hidden=!$('svcC').checked;if($('svcC').checked)$('svcCText').focus();});
- v.querySelectorAll('[data-svcaddsave]').forEach((el)=>el.addEventListener('click',()=>{const a=$('svcA').checked,b=false,c=$('svcC').checked,txt=$('svcCText').value.trim();
-  if(!a&&!b&&!c){toast('先勾选需求');return;}if(c&&!txt){toast('写一下其他需求的内容');$('svcCText').focus();return;}const t=nowISO();let n=0;
-  if(svcUpdate(el.dataset.svcaddsave,(L)=>{const has=(ty)=>L.some((x)=>!x.doneAt&&x.type===ty);
-   if(a&&!has('清理')){L.push({id:newId(),type:'清理',text:'',createdAt:t,hold:false,holdNote:'',doneAt:''});n++;}
-   if(b&&!has('收垃圾')){L.push({id:newId(),type:'收垃圾',text:'',createdAt:t,hold:false,holdNote:'',doneAt:''});n++;}
-   if(c){L.push({id:newId(),type:'其他',text:txt,createdAt:t,hold:false,holdNote:'',doneAt:''});n++;}if(!n)return false;}))toast('已登记 '+n+' 条需求');else if(!n)toast('这些需求已经在待办里');svcAdd='';render();}));
+ v.querySelectorAll('[data-svcadd]').forEach((el)=>el.addEventListener('click',()=>openSvcSheet(el.dataset.svcadd)));
+
  v.querySelectorAll('[data-svcaddno]').forEach((el)=>el.addEventListener('click',()=>{svcAdd='';render();}));
  v.querySelectorAll('[data-svcmod]').forEach((el)=>el.addEventListener('click',()=>{svcMod=el.dataset.svcmod;render();}));
  v.querySelectorAll('[data-svcmodno]').forEach((el)=>el.addEventListener('click',()=>{svcMod='';render();}));
@@ -398,6 +400,21 @@ function bindView(){const v=$('view');
   if($('purgeNo'))$('purgeNo').addEventListener('click',()=>{pendingPurge=false;render();});
   $('persistBtn').addEventListener('click',async()=>{try{const ok=navigator.storage&&navigator.storage.persist?await navigator.storage.persist():false;toast(ok?'系统已同意保留本机数据':'系统没有承诺保留，请定期备份');}catch(e){toast('系统没有承诺保留，请定期备份');}});}
 }
+
+/* ---------- 手机弹层：添加需求 ---------- */
+function openSvcSheet(k){const d=$('sheet');const g=live().filter((x)=>okey(x)===k);if(!g.length)return;
+ d.innerHTML=`<div class="dlg"><div class="dlg-h"><h3>添加需求 · ${esc(g[0].name)} ${g.map((x)=>esc(x.room)).join('、')}</h3><button type="button" class="sm" data-x>关闭</button></div>
+ <div class="dlg-b"><label class="chk big"><input type="checkbox" id="svcA"> 续住打扫</label><label class="chk big"><input type="checkbox" id="svcC"> 其他</label>
+ <input id="svcCText" placeholder="其他需求的具体内容，如 加毛巾" maxlength="60" hidden></div>
+ <div class="dlg-f"><button type="button" data-x>取消</button><button type="button" class="pri" id="svcSheetSave">保存</button></div></div>`;
+ d.querySelectorAll('[data-x]').forEach((b)=>b.onclick=()=>d.close());
+ $('svcC').onchange=()=>{$('svcCText').hidden=!$('svcC').checked;if($('svcC').checked)$('svcCText').focus();};
+ $('svcSheetSave').onclick=()=>{const a=$('svcA').checked,c=$('svcC').checked,txt=$('svcCText').value.trim();
+  if(!a&&!c){toast('先勾选需求');return;}if(c&&!txt){toast('写一下其他需求的内容');$('svcCText').focus();return;}const t=nowISO();let n=0;
+  if(svcUpdate(k,(L)=>{const has=(ty)=>L.some((x)=>!x.doneAt&&x.type===ty);
+   if(a&&!has('清理')){L.push({id:newId(),type:'清理',text:'',createdAt:t,hold:false,holdNote:'',doneAt:''});n++;}
+   if(c){L.push({id:newId(),type:'其他',text:txt,createdAt:t,hold:false,holdNote:'',doneAt:''});n++;}if(!n)return false;}))toast('已登记 '+n+' 条需求');else if(!n)toast('续住打扫已经在待办里');d.close();render();};
+ if(!d.open)d.showModal();}
 
 /* ---------- 详情（按整单） ---------- */
 function openDetail(id){const r=all.find((x)=>x.id===id);if(!r)return;detailConfirm=false;drawDetail(id);const d=$('detail');if(!d.open)d.showModal();}
@@ -615,8 +632,9 @@ async function restore(e){const f=e.target.files&&e.target.files[0];e.target.val
 
 /* ---------- 启动 ---------- */
 all=load();exps=loadExp();
-const h0=(location.hash||'').slice(1);if(['today','ledger','calendar','stats','backup'].includes(h0))tab=h0;
+const h0=(location.hash||'').slice(1);if(['today','ledger','calendar','stats','backup','more'].includes(h0))tab=h0;
 setTab(tab);
 function updateChip(){const c=$('offlineChip');c.textContent=navigator.onLine?'仅存本机':'离线 · 仅存本机';c.className='chip'+(navigator.onLine?'':' warn');}
 window.addEventListener('online',updateChip);window.addEventListener('offline',updateChip);updateChip();
 if('serviceWorker' in navigator){window.addEventListener('load',()=>{navigator.serviceWorker.register('sw.js').then(()=>navigator.serviceWorker.ready).then(()=>{swReady=true;const s=$('swState');if(s)s.textContent='离线页面已就绪';}).catch(()=>{});});}
+document.addEventListener('focusin',(e)=>{const el=e.target;if(el&&el.matches&&el.matches('input:not([type=checkbox]),textarea,select')){setTimeout(()=>{try{el.scrollIntoView({block:'center',behavior:'smooth'});}catch(_){}} ,300);}});
