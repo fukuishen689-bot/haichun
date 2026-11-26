@@ -10,9 +10,40 @@ const PICKUPS=['需接船','无需接船','待确认','已安排'];
 const TICKETS=['待确认','未购票','已购票','有变动','停航/取消'];
 const GUEST_TYPES=['未记录','情侣/夫妻','亲子家庭','朋友同行','独自出行','其他'];
 const PORTS=['半升洞','沈家湾','东福山','青浜岛'];
-const KEY='haichun.zkb.v2', OLD_KEY='haichun.bookings.v1', BKEY='haichun.zkb.lastBackup', EKEY='haichun.zkb.exp.v1';
-const EXP_CATS=['早餐食材','员工菜钱','员工餐费','维修五金','水','饮料','接待招待','客人代买','其他'];
-const EXP_PAY=['微信','支付宝','现金','其他'];
+const KEY='haichun.zkb.v2', OLD_KEY='haichun.bookings.v1', BKEY='haichun.zkb.lastBackup', EKEY='haichun.zkb.exp.v1', BUDGET_KEY='haichun.zkb.budget.v1';
+/* 金蝶风格会计科目：[科目编码, 一级科目, 成本性质, 二级明细] */
+const EXP_GROUPS=[
+ ['5401','餐饮成本','变动',['早餐食材','饮料','酒水零食','调料干货']],
+ ['5402','客房耗品','变动',['布草洗涤','洗漱用品','清洁用品','客房小物']],
+ ['5403','人工成本','固定',['员工工资','员工菜钱','员工餐费','临时工']],
+ ['5404','水电能源','变动',['电费','水费','燃气','桶装水']],
+ ['5405','维修保养','变动',['维修五金','设备维修','装修改造']],
+ ['6601','销售费用','变动',['平台佣金','推广费']],
+ ['6602','管理与运营','固定',['船票交通','快递运费','通讯网络','办公文具','接待招待']],
+ ['6603','固定费用','固定',['房租','保险','证照规费']],
+ ['2241','往来代付','往来',['客人代买','押金暂付']],
+ ['6711','营业外支出','变动',['其他']]
+];
+const INC_GROUPS=[
+ ['6051','其他业务收入','收入',['餐饮酒水收入','代订船票佣金','赔偿扣款','其他收入']]
+];
+const EXP_CATS=EXP_GROUPS.flatMap((g)=>g[3]);
+const INC_CATS=INC_GROUPS.flatMap((g)=>g[3]);
+const EXP_ALIAS={'水':'水电能源','接待招待':'管理与运营','运营杂费':'管理与运营','代收代付':'往来代付','其他':'营业外支出'};
+const PAY_ALIAS={'微信':'微信钱包','现金':'库存现金','银行卡':'个人银行卡','对公转账':'对公银行'};
+const BILL_ALIAS={'普通发票':'增值税普票','专用发票':'增值税专票'};
+const normPay=(p)=>PAY_ALIAS[p]||p||'微信钱包';
+const normBill=(b)=>BILL_ALIAS[b]||b||'无票';
+const entryType=(x)=>x&&x.type==='in'?'in':'out';
+function groupsOf(type){return type==='in'?INC_GROUPS:EXP_GROUPS;}
+function acctOf(c,type){const gs=groupsOf(type);let g=gs.find((x)=>x[3].includes(c));
+ if(!g&&type!=='in'){const al=EXP_ALIAS[c];if(al)g=gs.find((x)=>x[1]===al);}
+ if(!g)g=gs[gs.length-1];const si=g[3].indexOf(c);const sub=si>=0?pad(si+1):'99';
+ return {code:g[0],subCode:g[0]+'.'+sub,group:g[1],costType:g[2],subs:g[3]};}
+function groupOf(c,type){return acctOf(c,type).group;}
+function costTypeOf(x){return x.costType||acctOf(x.category,entryType(x)).costType;}
+const EXP_PAY=['微信钱包','支付宝','库存现金','对公银行','个人银行卡','其他'];
+const EXP_BILL=['无票','收据','增值税普票','增值税专票'];
 const ST_LABEL={'已入住':'已到店','已退房':'已离店'};const stl=(x)=>ST_LABEL[x]||x;
 const STATUS_CLS={'已预订':'p-booked','已入住':'p-in','已退房':'p-out','已取消':'p-cancel','待确认':'p-pending'};
 const BACKUP_DAYS=7;
@@ -37,7 +68,7 @@ function toast(t){const el=$('toast');el.textContent=t;el.hidden=false;clearTime
 const nowISO=()=>new Date().toISOString();
 
 /* ---------- 存储 ---------- */
-let all=[], exps=[];
+let all=[], exps=[], budgets={};
 function blank(over){const b=Object.assign({id:'',order:'',name:'',phone:'',room:'',checkin:'',checkout:'',bookingDate:today(),adults:2,children:0,channel:'微信直订',status:'已预订',
  pricingMode:'nightly',nightlyRate:null,amount:null,paid:null,refund:null,reference:'',group:'',origin:'',guestType:'未记录',
  arrival:{date:'',time:'',port:'',ship:'',ticket:'待确认'},departure:{date:'',time:'',port:'',ship:'',ticket:'待确认'},pickup:'需接船',arrivedAt:'',departedAt:'',notes:'',tasks:[],deleted:false,deletedAt:'',createdAt:'',updatedAt:''},over||{});
@@ -55,6 +86,8 @@ function load(){
  try{const old=JSON.parse(localStorage.getItem(OLD_KEY)||'[]');if(Array.isArray(old)&&old.length){const out=migrateOld(old);try{localStorage.setItem(KEY,JSON.stringify(out));}catch(e){}return out;}}catch(e){}
  return [];}
 function loadExp(){try{const v=JSON.parse(localStorage.getItem(EKEY)||'[]');return Array.isArray(v)?v:[];}catch(e){return [];}}
+function loadBudgets(){try{const v=JSON.parse(localStorage.getItem(BUDGET_KEY)||'{}');return v&&typeof v==='object'&&!Array.isArray(v)?v:{};}catch(e){return {};}}
+function persistBudgets(){try{localStorage.setItem(BUDGET_KEY,JSON.stringify(budgets));return true;}catch(e){return false;}}
 const FULL='手机存储空间不足，没能保存，内容已恢复到修改前。请先备份，再清理回收站。';
 function persist(){try{localStorage.setItem(KEY,JSON.stringify(all));return true;}catch(e){return false;}}
 function persistExp(){try{localStorage.setItem(EKEY,JSON.stringify(exps));return true;}catch(e){return false;}}
@@ -89,13 +122,13 @@ function pickTxt(r){if(r.pickup==='无需接船')return '无需接船';const l=r
 /* ---------- 路由 ---------- */
 let tab='today', dayView=today(), calStart=today(), statMonth=today().slice(0,7);
 const filt={q:'',status:'',channel:'',month:''};
-let expOpen=false, expEdit='', expDel='', settleAsk='', pendingPurge=false, swReady=false, detailConfirm=false;
+let settleAsk='', pendingPurge=false, swReady=false, detailConfirm=false, bookSub='report';
 function setTab(t){tab=t;const nt=(t==='stats'||t==='backup')?'more':t;document.querySelectorAll('#tabs button').forEach((b)=>{if(b.dataset.tab===nt)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');});$('newBtn').hidden=!(t==='today'||t==='ledger'||t==='calendar');
  try{history.replaceState(null,'','#'+t);}catch(e){}render();window.scrollTo(0,0);}
 document.querySelectorAll('#tabs button').forEach((b)=>b.addEventListener('click',()=>setTab(b.dataset.tab)));
 $('newBtn').addEventListener('click',()=>openEditor(null));
 function render(){const v=$('view');
- if(tab==='today')v.innerHTML=viewToday();else if(tab==='ledger')v.innerHTML=viewLedger();else if(tab==='calendar')v.innerHTML=viewCalendar();else if(tab==='stats')v.innerHTML=backBar()+viewStats();else if(tab==='more')v.innerHTML=viewMore();else v.innerHTML=backBar()+viewBackup();
+ if(tab==='today')v.innerHTML=viewToday();else if(tab==='ledger')v.innerHTML=viewLedger();else if(tab==='calendar')v.innerHTML=viewCalendar();else if(tab==='stats')v.innerHTML=backBar()+viewStats();else if(tab==='more')v.innerHTML=viewMore();else if(tab==='book')v.innerHTML=viewBook();else v.innerHTML=backBar()+viewBackup();
  bindView();}
 
 /* ---------- 今日安排 ---------- */
@@ -197,6 +230,7 @@ function viewToday(){const d=dayView,isToday=d===today(),act=live().filter((r)=>
  <button type="button" data-jump="secDep" class="${waitDep?'hot':''}"><b>${waitDep}<small> 间</small></b>待离店<i>已离店 ${departed}/${depR.length}</i></button>
  <button type="button" data-jump="secHouse" class="${svcPend?'hot':''}"><b>${svcPend}<small> 项</small></b>服务待办<i>${isToday||d<today()?'已完成 '+svcDone+' 项':'—'}</i></button></div>
  <div class="daynav"><button type="button" class="sm" data-day="-1">‹ 前一天</button><input type="date" id="dayPick" value="${esc(d)}" aria-label="安排日期"><button type="button" class="sm" data-day="1">后一天 ›</button>${isToday?'':'<button type="button" class="sm" data-day="0">回到今天</button>'}</div></section>`;
+ h+=budgetCardHTML(d.slice(0,7),true);
  h+=`<section class="sec" id="secArr"><div class="sec-h"><h3>当日到店</h3><span>${arr.length?arr.length+' 单 · 按船班时间':''}</span></div>${arr.length?'<div class="list">'+arr.map((g)=>orderCard(g,'in',d)).join('')+'</div>':'<div class="empty">这一天没有客人到店</div>'}</section>`;
  if(dep.length)h+=`<section class="sec" id="secDep"><div class="sec-h"><h3>当日离店</h3><span>${dep.length} 单 · 退房 9:30 前</span></div><div class="list">${dep.map((g)=>orderCard(g,'out',d)).join('')}</div></section>`;
  if(inHouse.length||curIn)h+=`<section class="sec" id="secHouse"><div class="sec-h"><h3>在住客人</h3><span>当前在住 ${curIn} 间${leaving?'（含待离店 '+leaving+' 间）':''}</span></div>${inHouse.length?'':'<div class="empty">在住客人都在「当日离店」里</div>'}<div class="list">${inHouse.map((g)=>houseCard(g,d)).join('')}</div></section>`;
@@ -207,32 +241,95 @@ function viewToday(){const d=dayView,isToday=d===today(),act=live().filter((r)=>
   const st=r.status==='已入住'?'<span class="ok">已到店</span>':`<span>${r.checkin===today()?'本日入住':cn(r.checkin)+'入住'}</span><span class="warnTxt">待到店</span>`;
   const nx=r.checkout===addDays(d,1)?nextOf(r):null;const svt=svcPendTag(r);
   return `<div class="rm occ${r.status==='已入住'?'':' wait'}" data-open="${esc(r.id)}" role="button" tabindex="0"><b>${n}</b><div class="gn">${esc(r.name)}</div><div class="gs">${st}<span>${cn(r.checkout)}离店</span></div>${svt?`<div class="svtag">${svt}</div>`:''}${nx?`<div class="nx">次日入住${nx.arrival&&nx.arrival.time?' · 船 '+esc(nx.arrival.time):''}</div>`:''}</div>`;}).join('')}</div></section>`;
- h+=expSection(d);
  return h;}
 
-/* ---------- 花费小记 ---------- */
+/* ---------- 财务账本：凭证与记账 ---------- */
 const liveExp=()=>exps.filter((x)=>!x.deleted);
 function expSum(list){return list.reduce((a,x)=>a+(cents(x.amount)||0),0);}
-function expRow(x,withDate){return `<div class="row exp${x.settled?' settled':''}"><button type="button" class="main plain" data-expedit="${esc(x.id)}"><div class="t">${esc(x.purpose)}<small>${withDate?cn(x.date)+' · ':''}${esc(x.category)}</small></div><div class="m">${esc(x.pay)}${x.payer&&x.payer!=='自己'?' · '+esc(x.payer)+'垫付':''}${x.room?' · '+esc(x.room):''}${x.note?' · '+esc(x.note):''} · ${x.settled?'已结算':'待结算'}</div></button><div class="r"><b class="amt">${yuan(cents(x.amount))}</b></div></div>`;}
-function expForm(x){const v=x||{category:EXP_CATS[0],pay:EXP_PAY[0],payer:'自己',room:'',note:'',purpose:'',amount:''};
- return `<form class="card expform" id="expForm" autocomplete="off"><div class="sec-h" style="margin:0"><h3>${x?'修改这笔支出':'新增支出'}</h3>${x?`<span>${cn(x.date)}</span>`:''}</div>
- <div class="field-row"><label>花费金额（元） <b>*</b><input id="xAmt" inputmode="decimal" value="${esc(v.amount??'')}" placeholder="如 36.5"></label><label>用途 <b>*</b><input id="xPur" value="${esc(v.purpose)}" placeholder="如 买鸡蛋、修水龙头"></label></div>
- <div class="field-row"><label>类别<select id="xCat">${[...new Set(EXP_CATS.concat([v.category]))].map((c)=>`<option${c===v.category?' selected':''}>${esc(c)}</option>`).join('')}</select></label><label>付款方式<select id="xPay">${EXP_PAY.map((c)=>`<option${c===v.pay?' selected':''}>${c}</option>`).join('')}</select></label></div>
- <div class="field-row"><label>谁垫付<input id="xWho" value="${esc(v.payer||'自己')}" placeholder="自己 / 合伙人姓名"></label><label>关联房间（可选）<select id="xRoom"><option value="">不关联</option>${ROOM_NAMES.map((n)=>`<option${n===v.room?' selected':''}>${n}</option>`).join('')}</select></label></div>
- <label>备注（可选）<input id="xNote" value="${esc(v.note||'')}" placeholder="商家、票据情况等"></label>
- ${x?`<label class="chk"><input type="checkbox" id="xSettled"${x.settled?' checked':''}> 已结算${x.settled&&x.settledAt?'（'+cn(x.settledAt.slice(0,10))+'）':''}</label>`:''}
- <div class="actions">${x?(expDel===x.id?`<span class="confirm">删除这笔？<button type="button" class="sm danger" id="xDelYes">删除</button><button type="button" class="sm" id="xDelNo">保留</button></span>`:'<button type="button" class="sm" id="xDel">删除</button>'):''}<span style="flex:1"></span><button type="button" id="xCancel">取消</button><button type="submit" class="pri">${x?'保存修改':'记下'}</button></div></form>`;}
-function expSection(d){const dx=liveExp().filter((x)=>x.date===d).sort((a,b)=>(a.createdAt||'').localeCompare(b.createdAt||''));const ex=expEdit?exps.find((x)=>x.id===expEdit):null;
- return `<section class="sec" id="expSec"><div class="sec-h"><h3>当日支出</h3><span>${dx.length?dx.length+' 笔 · 合计 <b class="ink">'+yuan(expSum(dx))+' 元</b>':'还没有记录'}</span></div>
- ${dx.length?'<div class="list">'+dx.map((x)=>expRow(x)).join('')+'</div>':''}
- ${ex||expOpen?expForm(ex):'<div class="actions"><button type="button" class="pri" id="expNew">新增支出</button></div>'}</section>`;}
+function qtyTxt(x){if(x.qty===''||x.qty==null)return '';return x.qty+(x.unit||'')+(x.price!==''&&x.price!=null?' × '+yuan(cents(x.price))+' 元':'');}
+function monthVnoMap(m){const L=liveExp().filter((x)=>x.date.slice(0,7)===m).sort((a,b)=>a.date.localeCompare(b.date)||(a.createdAt||'').localeCompare(b.createdAt||''));
+ const mp=new Map();const ym=m.slice(2,4)+m.slice(5,7);let seq=0;
+ L.forEach((x)=>{if(x.vno){mp.set(x.id,x.vno);const mm=x.vno.match(/(\d+)$/);if(mm)seq=Math.max(seq,Number(mm[1]));}else{seq++;mp.set(x.id,'记-'+ym+'-'+String(seq).padStart(3,'0'));}});return mp;}
+function nextVno(date){const m=dateOK(date)?date.slice(0,7):today().slice(0,7);const ym=m.slice(2,4)+m.slice(5,7);let mx=0;
+ liveExp().filter((x)=>x.date.slice(0,7)===m).forEach((x,i)=>{const mm=(x.vno||'').match(/(\d+)$/);mx=Math.max(mx,mm?Number(mm[1]):i+1);});
+ return '记-'+ym+'-'+String(mx+1).padStart(3,'0');}
+function expRow(x,vmap){const tp=entryType(x),ac=acctOf(x.category,tp),ct=costTypeOf(x),pay=normPay(x.pay),bill=normBill(x.bill);
+ const vno=(vmap&&vmap.get(x.id))||x.vno||'';
+ const sub=[pay,x.supplier,qtyTxt(x),x.payer&&x.payer!=='自己'?x.payer+'垫付':'',bill!=='无票'?bill+(x.invNo?' '+x.invNo:''):'',x.room,x.note].filter(Boolean).map(esc).join(' · ');
+ const stPill=tp==='in'?'<span class="pill p-out">已入账</span>':`<span class="pill ${x.settled?'p-out':'p-warn'}">${x.settled?'已结算':'待结算'}</span>`;
+ return `<button type="button" class="row exp xrow${tp==='out'&&x.settled?' settled':''}" data-expedit="${esc(x.id)}"><div class="main"><div class="t">${vno?`<span class="vno${tp==='in'?' in':''}">${esc(vno)}</span>`:''}${esc(x.purpose||x.category)}</div><div class="m"><span class="ctag${tp==='in'?' in':''}">${esc(ac.subCode)} ${esc(ac.group)} · ${esc(x.category)}</span>${tp==='out'?`<span class="ctype">${esc(ct)}</span>`:''}</div>${sub?`<div class="m">${sub}</div>`:''}</div><div class="r"><b class="amt ${tp}">${tp==='in'?'+':'-'}${yuan(cents(x.amount))}</b>${stPill}</div></button>`;}
+
+/* 金蝶风格记账凭证弹层 */
+let xd=null;
+function recentVals(k,n){const m=new Set();liveExp().slice().sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||'')).forEach((x)=>{const v=String(x[k]||'').trim();if(v)m.add(v);});return [...m].slice(0,n||30);}
+function openExp(id,date){const x=id?exps.find((y)=>y.id===id):null;if(id&&!x)return;
+ const last=liveExp().slice().sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||''))[0];
+ const d0=dateOK(date)?date:today();
+ if(x){const tp=entryType(x);xd=Object.assign({},x,{type:tp,pay:normPay(x.pay),bill:normBill(x.bill),costType:costTypeOf(x),invNo:x.invNo||''});}
+ else{const cat=last&&entryType(last)==='out'?last.category:EXP_CATS[0];xd={id:'',vno:nextVno(d0),type:'out',date:d0,amount:'',purpose:'',category:cat,costType:acctOf(cat,'out').costType,pay:last?normPay(last.pay):EXP_PAY[0],payer:'自己',room:'',note:'',supplier:'',qty:'',unit:'',price:'',bill:'无票',invNo:'',settled:false};}
+ xd._del=false;drawExp();const d=$('expDlg');if(!d.open)d.showModal();if(!id)setTimeout(()=>{const a=$('xAmt');if(a)a.focus();},80);}
+function subHTML(gname,type){const gs=groupsOf(type);const gg=gs.find((x)=>x[1]===gname)||gs[gs.length-1];const list=gg[3].slice();
+ if(groupOf(xd.category,type)===gg[1]&&!list.includes(xd.category))list.push(xd.category);
+ return list.map((s,i)=>`<button type="button" data-sub="${esc(s)}" aria-pressed="${s===xd.category}"><span class="acode-s">${gg[0]}.${pad(i+1)}</span>${esc(s)}</button>`).join('');}
+function syncExp(){if(!$('expForm'))return;const v=(id)=>$(id)?$(id).value:'';
+ Object.assign(xd,{amount:v('xAmt').trim(),date:v('xDate'),purpose:v('xPur'),payer:v('xWho'),supplier:v('xSup'),qty:v('xQty').trim(),unit:v('xUnit'),price:v('xPrice').trim(),bill:v('xBill')||'无票',invNo:v('xInv'),room:v('xRoom'),note:v('xNote')});
+ if($('xCost'))xd.costType=$('xCost').value;}
+function drawExp(){const d=$('expDlg'),v=xd,tp=entryType(v),gs=groupsOf(tp),ac=acctOf(v.category,tp);
+ const dl=(id,arr)=>`<datalist id="${id}">${arr.map((s)=>`<option value="${esc(s)}">`).join('')}</datalist>`;
+ const hasDetail=v.supplier||v.qty||v.price||(v.bill&&v.bill!=='无票')||v.invNo||v.room||v.note||(tp==='out'&&v.costType&&v.costType!==ac.costType);
+ const vnoShow=v.vno||nextVno(v.date);
+ d.innerHTML=`<form class="dlg" id="expForm" novalidate autocomplete="off"><div class="dlg-h"><h3>${v.id?'修改日记账':'新增日记账'}</h3><span class="vchip">${esc(vnoShow)}</span><button type="button" class="sm" data-x>关闭</button></div><div class="dlg-b">
+ <div class="vtype"><button type="button" data-vtype="out" aria-pressed="${tp==='out'}">支出</button><button type="button" data-vtype="in" aria-pressed="${tp==='in'}">其他收入</button></div>
+ <div class="xtop"><label class="xamt">${tp==='in'?'收入金额（元）':'支出金额（元）'} <b>*</b><input id="xAmt" inputmode="decimal" value="${esc(v.amount??'')}" placeholder="0.00"></label><label>记账日期<input type="date" id="xDate" value="${esc(v.date)}"></label></div>
+ <div><div class="flabel">会计科目 <b>*</b><span>${esc(ac.subCode)} ${esc(ac.group)}</span></div>
+ <div class="chips scroll" id="xGrp">${gs.map(([code,n])=>`<button type="button" data-grp="${esc(n)}" aria-pressed="${n===ac.group}"><span class="acode-s">${code}</span>${esc(n)}</button>`).join('')}</div>
+ <div class="chips sub" id="xSub">${subHTML(ac.group,tp)}</div></div>
+ <label>摘要<input id="xPur" list="dlPur" value="${esc(v.purpose||'')}" placeholder="${tp==='in'?'如 客人买啤酒、代订船票返佣':'如 采购早餐鸡蛋、修听风空调（不填用科目名）'}" maxlength="60"></label>
+ <div><div class="flabel">资金账户</div><div class="chips" id="xPayC">${EXP_PAY.map((p)=>`<button type="button" data-pay="${esc(p)}" aria-pressed="${p===v.pay}">${esc(p)}</button>`).join('')}</div></div>
+ <label>${tp==='in'?'经办人':'经办 / 垫付人'}<input id="xWho" list="dlWho" value="${esc(v.payer||'自己')}" placeholder="自己 / 合伙人姓名" maxlength="20"></label>
+ <details${hasDetail?' open':''}><summary>辅助核算与税票（供应商、数量单价、票据、房间）</summary><div class="inner">
+  ${tp==='out'?`<label>成本性质（用于利润表毛利核算）<select id="xCost">${[['变动','变动成本（随入住变动，计入毛利）'],['固定','固定与管理费用（房租/人工/日常）'],['往来','往来代付（不计入经营损益）']].map(([val,lab])=>`<option value="${val}"${val===(v.costType||ac.costType)?' selected':''}>${lab}</option>`).join('')}</select></label>`:''}
+  <label>${tp==='in'?'付款方 / 往来单位':'往来单位 / 供应商'}<input id="xSup" list="dlSup" value="${esc(v.supplier||'')}" placeholder="如 沈家门菜场、海岛五金店" maxlength="40"></label>
+  <div class="field-row3 qrow"><label>数量<input id="xQty" inputmode="decimal" value="${esc(v.qty??'')}" placeholder="30"></label><label>单位<input id="xUnit" list="dlUnit" value="${esc(v.unit||'')}" placeholder="个/斤" maxlength="6"></label><label>单价（元）<input id="xPrice" inputmode="decimal" value="${esc(v.price??'')}" placeholder="自动算金额"></label></div>
+  <div class="field-row"><label>票据类型<select id="xBill">${EXP_BILL.map((b)=>`<option${b===(v.bill||'无票')?' selected':''}>${b}</option>`).join('')}</select></label><label>发票号 / 税额（选填）<input id="xInv" value="${esc(v.invNo||'')}" placeholder="如 2633... 或 税额12" maxlength="30"></label></div>
+  <div class="field-row"><label>核算房间（分房成本）<select id="xRoom"><option value="">公共 / 不分房</option>${ROOM_NAMES.map((n)=>`<option${n===v.room?' selected':''}>${n}</option>`).join('')}</select></label><label>备注<input id="xNote" value="${esc(v.note||'')}" placeholder="其他说明" maxlength="100"></label></div></div></details>
+ ${v.id&&tp==='out'?`<label class="chk"><input type="checkbox" id="xSettled"${v.settled?' checked':''}> 垫付已结算${v.settled&&v.settledAt?'（'+cn(v.settledAt.slice(0,10))+'）':''}</label>`:''}
+ ${dl('dlPur',recentVals('purpose'))}${dl('dlWho',[...new Set(['自己'].concat(recentVals('payer')))])}${dl('dlSup',recentVals('supplier'))}${dl('dlUnit',['个','斤','公斤','箱','袋','瓶','桶','包','套','次','天','月'])}
+ </div><div class="dlg-f">${v.id?(v._del?`<span class="confirm">删除这条日记账？<button type="button" class="sm danger" id="xDelYes">删除</button><button type="button" class="sm" id="xDelNo">保留</button></span>`:'<button type="button" id="xDel">删除</button>'):'<button type="button" id="xMore">保存并再记一笔</button>'}<button type="submit" class="pri">${v.id?'保存修改':'保存日记账'}</button></div></form>`;
+ const press=(box,b)=>$(box).querySelectorAll('button').forEach((y)=>y.setAttribute('aria-pressed',y===b?'true':'false'));
+ d.querySelectorAll('[data-vtype]').forEach((b)=>b.onclick=()=>{const nt=b.dataset.vtype;if(nt===xd.type)return;syncExp();xd.type=nt;const g0=groupsOf(nt)[0];xd.category=g0[3][0];xd.costType=g0[2];drawExp();});
+ const bindSub=()=>$('xSub').querySelectorAll('[data-sub]').forEach((b)=>b.onclick=()=>{xd.category=b.dataset.sub;press('xSub',b);});
+ bindSub();
+ d.querySelectorAll('[data-grp]').forEach((b)=>b.onclick=()=>{const gg=groupsOf(xd.type).find((x)=>x[1]===b.dataset.grp);if(!gg)return;if(groupOf(xd.category,xd.type)!==gg[1])xd.category=gg[3][0];xd.costType=gg[2];if($('xCost'))$('xCost').value=gg[2];press('xGrp',b);$('xSub').innerHTML=subHTML(gg[1],xd.type);bindSub();});
+ d.querySelectorAll('[data-pay]').forEach((b)=>b.onclick=()=>{xd.pay=b.dataset.pay;press('xPayC',b);});
+ $('xDate').addEventListener('change',()=>{if(!xd.id&&dateOK($('xDate').value)){xd.date=$('xDate').value;xd.vno=nextVno(xd.date);const vc=d.querySelector('.vchip');if(vc)vc.textContent=xd.vno;}});
+ const autoAmt=()=>{const q=Number($('xQty').value),p=Number($('xPrice').value);if($('xQty').value!==''&&$('xPrice').value!==''&&q>0&&p>=0)$('xAmt').value=String(Math.round(q*p*100)/100);};
+ $('xQty').addEventListener('input',autoAmt);$('xPrice').addEventListener('input',autoAmt);
+ d.querySelector('[data-x]').onclick=()=>d.close();
+ const save=(again)=>{syncExp();const v2=xd;let amt,price;try{amt=moneyIn(v2.amount);price=moneyIn(v2.price);}catch(e){toast('金额、单价要填非负数字');return;}
+  if(amt==null||amt<=0){toast('先填金额');$('xAmt').focus();return;}
+  if(!dateOK(v2.date)){toast('选一下记账日期');return;}
+  const qty=v2.qty===''||v2.qty==null?'':Number(v2.qty);if(qty!==''&&!(qty>0)){toast('数量要填正数');$('xQty').focus();return;}
+  const t=nowISO(),tp2=entryType(v2),ac2=acctOf(v2.category,tp2);
+  const vno=v2.vno||nextVno(v2.date);
+  const fields={vno,type:tp2,date:v2.date,amount:amt,purpose:(v2.purpose||'').trim().slice(0,60)||v2.category,category:v2.category,costType:tp2==='in'?'收入':(v2.costType||ac2.costType),pay:v2.pay,payer:(v2.payer||'').trim().slice(0,20)||'自己',room:v2.room,note:(v2.note||'').trim().slice(0,100),supplier:(v2.supplier||'').trim().slice(0,40),qty,unit:(v2.unit||'').trim().slice(0,6),price:price==null?'':price,bill:v2.bill||'无票',invNo:(v2.invNo||'').trim().slice(0,30)};
+  const id=v2.id;const st=$('xSettled')?$('xSettled').checked:null;
+  const ok=txExp(()=>{if(id){const x=exps.find((y)=>y.id===id);if(!x)return false;Object.assign(x,fields,{updatedAt:t});if(tp2==='in'){x.settled=true;}else if(st!==null&&st!==!!x.settled){x.settled=st;x.settledAt=st?t:'';}}
+   else exps.push(Object.assign({id:newId()},fields,{settled:tp2==='in',settledAt:tp2==='in'?t:'',deleted:false,createdAt:t,updatedAt:t}));});
+  if(!ok)return;toast(id?'日记账已修改':'已记入日记账 '+vno+' · '+yuan(Math.round(amt*100))+' 元');render();
+  if(again){xd=Object.assign({},xd,{id:'',vno:nextVno(v2.date),amount:'',purpose:'',supplier:'',qty:'',unit:'',price:'',room:'',bill:'无票',invNo:'',note:'',_del:false});drawExp();setTimeout(()=>{const a=$('xAmt');if(a)a.focus();},30);}else d.close();};
+ $('expForm').addEventListener('submit',(e)=>{e.preventDefault();save(false);});
+ if($('xMore'))$('xMore').onclick=()=>save(true);
+ if($('xDel'))$('xDel').onclick=()=>{syncExp();xd._del=true;drawExp();};
+ if($('xDelNo'))$('xDelNo').onclick=()=>{syncExp();xd._del=false;drawExp();};
+ if($('xDelYes'))$('xDelYes').onclick=()=>{const id=xd.id;if(txExp(()=>{const x=exps.find((y)=>y.id===id);if(!x)return false;x.deleted=true;x.updatedAt=nowISO();}))toast('已删除这条日记账');d.close();render();};}
 
 function pageHead(t,pos){return `<div class="page-head"><img src="hero.jpg" alt="" decoding="async" style="object-position:${pos}"><h2>${t}</h2></div>`;}
 /* ---------- 更多 ---------- */
 function backBar(){return '<button type="button" class="back" data-tab-go="more">‹ 更多</button>';}
 function viewMore(){const l=lastBackup();const trash=all.filter((r)=>r.deleted).length;
  return `<h2>更多</h2><div class="list menu">
- <button type="button" class="row mrow" data-tab-go="stats"><div class="main"><div class="t">经营概览</div><div class="m">本月间夜、住宿房费、预订渠道、垫付总计</div></div><span class="chev">›</span></button>
+ <button type="button" class="row mrow" data-tab-go="stats"><div class="main"><div class="t">经营概览</div><div class="m">本月间夜、住宿房费、预订渠道、成本概况</div></div><span class="chev">›</span></button>
  <button type="button" class="row mrow" data-tab-go="backup"><div class="main"><div class="t">备份与导出</div><div class="m">${l?'上次备份 '+cn(l.slice(0,10)):'还没有备份过'} · 对账表 · 回收站${trash?' '+trash+' 条':''}</div></div><span class="chev">›</span></button>
  </div><p class="note">数据仅保存在当前浏览器，未开启跨设备同步。</p>`;}
 
@@ -287,22 +384,131 @@ function viewStats(){const [s,e]=monthRange(statMonth);const recs=live();
  <div class="kpi"><div class="l">新增预订</div><div class="v">${booked.length}<small>单</small></div><div class="s">${bookedR.length} 间房记录 · 取消 ${canc.length} 单${avgLead!=null?' · 平均提前 '+avgLead.toFixed(1)+' 天':''}</div></div></div>
  <section class="sec"><div class="sec-h"><h3>各房间已登记间夜</h3><span>入住日计入，离店日不计</span></div><div class="card bars">${byRoom.map((x)=>`<div class="bar"><span>${x.n}</span><span class="track"><i style="width:${(x.v/maxR*100).toFixed(1)}%"></i></span><span>${x.v} 间夜</span></div>`).join('')}</div></section>
  <section class="sec"><div class="sec-h"><h3>预订渠道分布</h3><span>按预订日 · 按单计 · 含取消</span></div>${ch.length?`<div class="card bars">${ch.map((x)=>`<div class="bar"><span>${esc(x.c)}</span><span class="track"><i style="width:${(x.v/maxC*100).toFixed(1)}%"></i></span><span>${x.v} 单</span></div>`).join('')}</div>`:'<div class="empty">这个月还没有新增预订</div>'}</section>
- ${advHTML(s,e)}
+ ${costBrief(s,e)}
  <p class="note">本月住宿房费 = 每间房房费 ÷ 总晚数 × 本月住宿晚数，不是财务收入，不含佣金和退款；金额没填的间夜不按 0 元算。没有完整的可售房晚数据，所以不算入住率和 RevPAR。</p>`;}
+/* ---------- 财务账本：金蝶式月度视图 ---------- */
+const bf={q:'',type:'',grp:'',pay:'',st:'',bill:''};
+function monthNights(s,e){let nights=0,alloc=0,knownN=0;live().filter((r)=>ACTIVE.includes(r.status)&&r.checkin<e&&r.checkout>s).forEach((r)=>{const a=r.checkin>s?r.checkin:s,b=r.checkout<e?r.checkout:e,k=days(a,b);nights+=k;const al=allocated(r,s,e);if(al!=null){knownN+=k;alloc+=al;}});return {nights,alloc,knownN};}
+function prevMonth(m){const d=new Date(m+'-01T00:00:00');d.setMonth(d.getMonth()-1);return d.getFullYear()+'-'+pad(d.getMonth()+1);}
+function expMonths(){return [...new Set(liveExp().map((x)=>x.date.slice(0,7)).concat(Object.keys(budgets)).concat([today().slice(0,7),statMonth]))].sort().reverse();}
+function budgetCardHTML(m,compact){const [s,e]=monthRange(m);const b=budgets[m]||{};
+ const tRev=cents(b.rev), tCost=cents(b.cost);
+ const mn=monthNights(s,e), mx=liveExp().filter((x)=>x.date>=s&&x.date<e);
+ const rev=mn.alloc+expSum(mx.filter((x)=>entryType(x)==='in'));
+ const opCost=expSum(mx.filter((x)=>entryType(x)==='out'&&costTypeOf(x)!=='往来'));
+ const isCur=m===today().slice(0,7), totD=days(s,e), curD=isCur?Number(today().slice(8)):totD;
+ const remD=isCur?Math.max(1,totD-curD+1):0, tPct=isCur?Math.min(100,curD/totD*100):null;
+ const mShort=Number(m.slice(5))+'月';
+ if(!(tRev>0)&&!(tCost>0)){
+  return `<div class="bcard${compact?' mini':''}"><div class="bempty"><span>${mShort}目标营收暂未设置，设好后每天可看进度与差额</span><button type="button" class="sm pri" data-budget="${esc(m)}">设置目标</button></div></div>`;}
+ let h=`<div class="bcard${compact?' mini':''}">`;
+ if(tRev>0){const pct=rev/tRev*100, gap=tRev-rev, done=gap<=0, daily=remD&&gap>0?Math.ceil(gap/remD):0;
+  h+=`<div class="bcard-h"><b>${mShort}目标营收 · ${yuan(tRev)} 元</b><span class="bpct${done?' ok':''}">${pct.toFixed(1)}%</span></div>
+  <div class="bbar"><i class="${done?'ok':''}" style="width:${Math.min(100,pct).toFixed(1)}%"></i>${tPct!=null?`<span class="tmark" style="left:${tPct.toFixed(1)}%" title="时间进度 ${tPct.toFixed(0)}%"></span>`:''}</div>
+  <div class="bnums"><span>已完成 <b>${yuan(rev)}</b> 元</span><span>${done?`<b class="ok">已超额 +${yuan(-gap)} 元</b>`:`还差 <b class="gap">${yuan(gap)}</b> 元`}</span>${!done&&daily?`<span>余 ${remD} 天 · 日均需 <b>${yuan(daily)}</b></span>`:''}<button type="button" class="link" style="padding:0;font-size:12.5px" data-budget="${esc(m)}">改目标</button></div>`;}
+ else{h+=`<div class="bempty"><span>${mShort}目标营收未设置</span><button type="button" class="sm" data-budget="${esc(m)}">设置目标</button></div>`;}
+ if(!compact&&tCost>0){const cp=opCost/tCost*100, left=tCost-opCost, over=left<0;
+  h+=`<div class="bsub-row"><div class="bcard-h"><b>${mShort}成本预算 · ${yuan(tCost)} 元</b><span class="bpct${over?' bad':''}">${cp.toFixed(1)}%</span></div>
+  <div class="bbar"><i class="${over?'bad':cp>=85?'warn':''}" style="width:${Math.min(100,cp).toFixed(1)}%"></i></div>
+  <div class="bnums"><span>已支出 <b>${yuan(opCost)}</b> 元</span><span>${over?`<b class="bad">已超支 ${yuan(-left)} 元</b>`:`剩余可用 <b class="ok">${yuan(left)}</b> 元`}</span></div></div>`;}
+ return h+'</div>';}
+function openBudgetSheet(m){const d=$('sheet');const b=budgets[m]||{};const pm=prevMonth(m),pb=budgets[pm];
+ d.innerHTML=`<form class="dlg" id="budForm" novalidate autocomplete="off"><div class="dlg-h"><h3>${mlabel(m)} · 预算目标</h3><button type="button" class="sm" data-x>关闭</button></div><div class="dlg-b">
+ <label>本月目标营收（元）<input id="bRev" inputmode="decimal" value="${esc(b.rev??'')}" placeholder="如 50000（留空则不显示）"></label>
+ <label>本月成本预算（元，选填）<input id="bCost" inputmode="decimal" value="${esc(b.cost??'')}" placeholder="如 18000（用于控制经营成本上限）"></label>
+ ${pb&&(pb.rev||pb.cost)?`<div class="actions" style="margin-top:0"><button type="button" class="sm" id="bCopyPrev">沿用上月（营收 ${pb.rev||'—'}${pb.cost?' / 成本 '+pb.cost:''}）</button></div>`:''}
+ <p class="note" style="margin:0">工作台与财务账本都会实时显示「已完成 / 还差多少 / 剩余日均需完成额」。进度条上的竖线代表当月时间进度。</p>
+ </div><div class="dlg-f"><button type="button" data-x>取消</button><button type="submit" class="pri">保存目标</button></div></form>`;
+ d.querySelectorAll('[data-x]').forEach((el)=>el.onclick=()=>d.close());
+ if($('bCopyPrev'))$('bCopyPrev').onclick=()=>{if(pb.rev!=null)$('bRev').value=pb.rev;if(pb.cost!=null)$('bCost').value=pb.cost;};
+ $('budForm').onsubmit=(e)=>{e.preventDefault();let rv,cv;try{rv=moneyIn($('bRev').value.trim());cv=moneyIn($('bCost').value.trim());}catch(err){toast('请输入非负数字');return;}
+  if((rv==null||rv===0)&&(cv==null||cv===0))delete budgets[m];else budgets[m]={rev:rv||null,cost:cv||null};
+  if(!persistBudgets()){toast(FULL);return;}toast('已保存 '+mlabel(m)+' 预算目标');d.close();render();};
+ if(!d.open)d.showModal();setTimeout(()=>{const a=$('bRev');if(a)a.focus();},60);}
+function viewBook(){const [s,e]=monthRange(statMonth);const mx=liveExp().filter((x)=>x.date>=s&&x.date<e);
+ const outM=mx.filter((x)=>entryType(x)==='out'), inM=mx.filter((x)=>entryType(x)==='in');
+ const [ps,pe]=monthRange(prevMonth(statMonth));
+ const pOut=expSum(liveExp().filter((x)=>x.date>=ps&&x.date<pe&&entryType(x)==='out'&&costTypeOf(x)!=='往来'));
+ const mn=monthNights(s,e), otherInc=expSum(inM), rev=mn.alloc+otherInc;
+ const varL=outM.filter((x)=>costTypeOf(x)==='变动'), fixL=outM.filter((x)=>costTypeOf(x)==='固定'), passL=outM.filter((x)=>costTypeOf(x)==='往来');
+ const varCost=expSum(varL), fixCost=expSum(fixL), passCost=expSum(passL), opCost=varCost+fixCost;
+ const gross=rev-varCost, profit=rev-opCost, per=mn.nights?Math.round(opCost/mn.nights):null;
+ const diff=pOut?((opCost-pOut)/pOut*100):null;
+ const pendCnt=liveExp().filter((x)=>entryType(x)==='out'&&!x.settled).length;
+ const sel=(id,cur,opts,lbl)=>`<select id="${id}" aria-label="${lbl}">${opts.map(([v,l])=>`<option value="${esc(v)}"${v===cur?' selected':''}>${esc(l)}</option>`).join('')}</select>`;
+ const isCur=statMonth===today().slice(0,7);
+ const vmap=monthVnoMap(statMonth);
+ let body='';
+ if(bookSub==='report'){
+  const pct=(v)=>rev>0?(v/rev*100).toFixed(1)+'%':'—';
+  const sumByGrp=(list)=>EXP_GROUPS.map(([code,n])=>({code,n,v:expSum(list.filter((x)=>groupOf(x.category,'out')===n))})).filter((x)=>x.v).sort((a,b)=>b.v-a.v);
+  const vGrps=sumByGrp(varL), fGrps=sumByGrp(fixL);
+  const allGrps=EXP_GROUPS.map(([code,n])=>{const L=outM.filter((x)=>groupOf(x.category,'out')===n);return {code,n,v:expSum(L),subs:[...new Set(L.map((x)=>x.category))].map((c)=>({c,v:expSum(L.filter((x)=>x.category===c))})).sort((a,b)=>b.v-a.v)};}).filter((x)=>x.v).sort((a,b)=>b.v-a.v);
+  const outTot=expSum(outM), maxG=Math.max(1,...allGrps.map((x)=>x.v));
+  body=`<div class="grid3">
+   <div class="kpi"><div class="l">本月营业收入</div><div class="v">${yuan(rev)}<small>元</small></div><div class="s">房费 ${yuan(mn.alloc)}${otherInc?' + 其他 '+yuan(otherInc):''}</div></div>
+   <div class="kpi"><div class="l">本月经营成本</div><div class="v">${yuan(opCost)}<small>元</small></div><div class="s">${varL.length+fixL.length} 笔${diff!=null?' · 环比'+(diff>=0?'+':'-')+Math.abs(diff).toFixed(0)+'%':''}</div></div>
+   <div class="kpi"><div class="l">本月经营利润</div><div class="v${profit<0?' neg':''}">${profit<0?'-':''}${yuan(Math.abs(profit))}<small>元</small></div><div class="s">${rev>0?'净利率 '+(profit/rev*100).toFixed(1)+'%':'暂未录入房费'}${per!=null?' · 单夜成本 '+yuan(per):''}</div></div></div>
+  <section class="sec"><div class="sec-h"><h3>预算与目标达成</h3><button type="button" class="link" style="padding:0;font-size:13px" data-budget="${esc(statMonth)}">设置预算</button></div>${budgetCardHTML(statMonth,false)}</section>
+  <section class="sec"><div class="sec-h"><h3>月度简易损益表</h3><span>参照金蝶利润表口径</span></div>
+   <div class="card pnl"><table><thead><tr><th>核算项目</th><th class="num">本月金额（元）</th><th class="num">占收入比</th></tr></thead><tbody>
+    <tr class="sec-r"><td>一、营业收入</td><td class="num">${yuan(rev)}</td><td class="num">${rev>0?'100%':'—'}</td></tr>
+    <tr class="sub-r"><td><span class="acode">6001</span>住宿房费（按日分摊）</td><td class="num">${yuan(mn.alloc)}</td><td class="num">${pct(mn.alloc)}</td></tr>
+    ${otherInc?`<tr class="sub-r"><td><span class="acode">6051</span>其他业务收入</td><td class="num">${yuan(otherInc)}</td><td class="num">${pct(otherInc)}</td></tr>`:''}
+    <tr class="sec-r"><td>二、营业变动成本</td><td class="num">${yuan(varCost)}</td><td class="num">${pct(varCost)}</td></tr>
+    ${vGrps.length?vGrps.map((x)=>`<tr class="sub-r"><td><span class="acode">${x.code}</span>${esc(x.n)}</td><td class="num">${yuan(x.v)}</td><td class="num">${pct(x.v)}</td></tr>`).join(''):'<tr class="sub-r"><td>本月暂无变动成本</td><td class="num">0</td><td class="num">—</td></tr>'}
+    <tr class="sec-r"><td>三、经营毛利</td><td class="num">${gross<0?'-':''}${yuan(Math.abs(gross))}</td><td class="num">${pct(gross)}</td></tr>
+    <tr class="sec-r"><td>四、固定与管理费用</td><td class="num">${yuan(fixCost)}</td><td class="num">${pct(fixCost)}</td></tr>
+    ${fGrps.length?fGrps.map((x)=>`<tr class="sub-r"><td><span class="acode">${x.code}</span>${esc(x.n)}</td><td class="num">${yuan(x.v)}</td><td class="num">${pct(x.v)}</td></tr>`).join(''):'<tr class="sub-r"><td>本月暂无固定费用</td><td class="num">0</td><td class="num">—</td></tr>'}
+    <tr class="tot-r"><td>五、本月经营利润</td><td class="num ${profit>=0?'pos':'neg'}">${profit<0?'-':''}${yuan(Math.abs(profit))}</td><td class="num">${pct(profit)}</td></tr>
+    ${passCost?`<tr class="memo-r"><td>附：往来代付（不计入损益）</td><td class="num">${yuan(passCost)}</td><td class="num">—</td></tr>`:''}
+   </tbody></table><div class="pnl-meta"><span>已登记间夜 <b>${mn.nights}</b></span><span>每间夜成本 <b>${per!=null?yuan(per)+' 元':'—'}</b></span>${mn.knownN<mn.nights?`<span>未填房费 <b>${mn.nights-mn.knownN} 间夜</b></span>`:''}</div></div></section>
+  <section class="sec"><div class="sec-h"><h3>科目费用结构</h3><span>${allGrps.length?'点科目查看日记账':''}</span></div>${allGrps.length?`<div class="card cstruct">${allGrps.map((x)=>`<button type="button" class="cg" data-bgrp="${esc(x.n)}"><div class="cgh"><b><span class="acode-s">${x.code}</span>${esc(x.n)}</b><span><b>${yuan(x.v)}</b> 元 · ${(x.v/outTot*100).toFixed(1)}%</span></div><span class="track"><i style="width:${(x.v/maxG*100).toFixed(1)}%"></i></span><div class="cgs">${x.subs.map((y)=>esc(y.c)+' '+yuan(y.v)).join(' · ')}</div></button>`).join('')}</div>`:'<div class="empty">这个月还没有记支出日记账</div>'}</section>
+  <div class="actions"><button type="button" id="bookExp">导出日记账明细（CSV）</button></div>`;
+ }else if(bookSub==='ledger'){
+  const q=bf.q.trim().toLowerCase();
+  const rows=mx.filter((x)=>{const tp=entryType(x),pay=normPay(x.pay),bill=normBill(x.bill);
+   return (!bf.type||tp===bf.type)&&(!bf.grp||groupOf(x.category,tp)===bf.grp)&&(!bf.pay||pay===bf.pay)
+    &&(!bf.st||(bf.st==='pend'?(tp==='out'&&!x.settled):bf.st==='done'?(tp==='out'&&!!x.settled):bf.st==='has'?bill!=='无票':bill==='无票'))
+    &&(!q||[vmap.get(x.id)||'',x.purpose,x.category,groupOf(x.category,tp),x.supplier,x.note,x.payer,x.room,x.invNo].join(' ').toLowerCase().includes(q));})
+   .sort((a,b)=>b.date.localeCompare(a.date)||(b.createdAt||'').localeCompare(a.createdAt||''));
+  const byDay=[];rows.forEach((x)=>{let g=byDay[byDay.length-1];if(!g||g.d!==x.date){g={d:x.date,L:[]};byDay.push(g);}g.L.push(x);});
+  const grpOpts=[['','全部科目']].concat(EXP_GROUPS.map(([c,n])=>[n,c+' '+n])).concat(INC_GROUPS.map(([c,n])=>[n,c+' '+n]));
+  const rOut=expSum(rows.filter((x)=>entryType(x)==='out')), rIn=expSum(rows.filter((x)=>entryType(x)==='in'));
+  body=`<section class="sec" style="margin-top:0"><div class="sec-h"><h3>收支日记账</h3><span>${rows.length} 笔 · 支 <b class="ink">${yuan(rOut)}</b>${rIn?' · 收 <b class="ok">'+yuan(rIn)+'</b>':''}</span></div>
+   <div class="filters f5"><input id="bq" placeholder="搜流水号、摘要、科目、供应商、发票号" value="${esc(bf.q)}" aria-label="搜索日记账">${sel('btype',bf.type,[['','全部收支'],['out','仅支出'],['in','仅其他收入']],'收支')}${sel('bgrp',bf.grp,grpOpts,'科目')}${sel('bpay',bf.pay,[['','全部账户']].concat(EXP_PAY.map((p)=>[p,p])),'资金账户')}${sel('bst',bf.st,[['','票据/结算'],['pend','待结算'],['done','已结算'],['has','有票据'],['none','无票']],'状态')}</div>
+   ${byDay.length?byDay.map((g)=>{const dOut=expSum(g.L.filter((x)=>entryType(x)==='out')),dIn=expSum(g.L.filter((x)=>entryType(x)==='in'));
+    return `<div class="dayg"><div class="dayh"><span>${cn(g.d)} ${wd(g.d)} · ${g.L.length} 笔</span><b>${dOut?'支 '+yuan(dOut)+' 元':''}${dOut&&dIn?' · ':''}${dIn?'收 '+yuan(dIn)+' 元':''}</b></div><div class="list">${g.L.map((x)=>expRow(x,vmap)).join('')}</div></div>`;}).join(''):`<div class="empty">${mx.length?'没有符合条件的日记账':'这个月还没有记日记账'}</div>`}
+   <div class="actions"><button type="button" id="bookExp">导出日记账明细（CSV）</button></div></section>`;
+ }else if(bookSub==='accounts'){
+  const accts=EXP_PAY.map((p)=>{const L=mx.filter((x)=>normPay(x.pay)===p);
+   const iV=expSum(L.filter((x)=>entryType(x)==='in')),oV=expSum(L.filter((x)=>entryType(x)==='out'));
+   return {p,n:L.length,iV,oV,net:iV-oV};});
+  const totIn=expSum(inM), totOut=expSum(outM);
+  body=`<div class="grid3"><div class="kpi"><div class="l">本月资金流出</div><div class="v">${yuan(totOut)}<small>元</small></div><div class="s">${outM.length} 笔（含往来）</div></div>
+   <div class="kpi"><div class="l">其他收入流入</div><div class="v">${yuan(totIn)}<small>元</small></div><div class="s">${inM.length} 笔（不含房费）</div></div>
+   <div class="kpi"><div class="l">已开发票/收据</div><div class="v">${mx.filter((x)=>normBill(x.bill)!=='无票').length}<small>张</small></div><div class="s">共 ${mx.length} 笔日记账</div></div></div>
+  <section class="sec"><div class="sec-h"><h3>各资金账户本月汇总</h3><span>点击查看对应日记账</span></div><div class="accts">${accts.map((a)=>`<button type="button" class="acct" data-bacct="${esc(a.p)}"><div><div class="aname">${esc(a.p)}</div><div class="ameta">${a.n?a.n+' 笔日记账':'本月无发生'}</div></div><div><div class="anet${a.net>0?' pos':''}">${a.net>0?'+':a.net<0?'-':''}${yuan(Math.abs(a.net))}</div><div class="aflow">支 ${yuan(a.oV)}${a.iV?' · 收 '+yuan(a.iV):''}</div></div></button>`).join('')}</div></section>`;
+ }else{
+  body=settleHTML(s,e);
+ }
+ return `<div class="bookhead"><h2>财务账本</h2><button type="button" class="pri" data-expnew="${isCur?today():s}">＋ 记日记账</button></div>
+ <div class="daynav">${sel('bookM',statMonth,expMonths().map((m)=>[m,mlabel(m)]),'账本月份')}</div>
+ <div class="bsub" role="tablist">${[['report','损益报表'],['ledger','日记账'],['accounts','资金账户'],['settle','往来核销'+(pendCnt?'('+pendCnt+')':'')]].map(([k,l])=>`<button type="button" role="tab" data-bsub="${k}" aria-selected="${bookSub===k}">${l}</button>`).join('')}</div>
+ ${body}
+ <p class="note">数据遵循权责发生制估算：住宿房费按住宿日分摊，往来代付单独核算不计入损益。</p>`;}
 function rangeTxt(list){if(!list.length)return '';const ds=list.map((x)=>x.date).sort();return ds[0]===ds[ds.length-1]?cn(ds[0]):cn(ds[0])+'–'+cn(ds[ds.length-1]);}
-function advHTML(s,e){const mx=liveExp().filter((x)=>x.date>=s&&x.date<e),pendAll=liveExp().filter((x)=>!x.settled).sort((a,b)=>a.date.localeCompare(b.date));
- const mPend=mx.filter((x)=>!x.settled),settledRecent=liveExp().filter((x)=>x.settled).sort((a,b)=>(b.settledAt||'').localeCompare(a.settledAt||'')).slice(0,10);
- const cat=[...new Set(EXP_CATS.concat(mx.map((x)=>x.category)))].map((c)=>({c,v:expSum(mx.filter((x)=>x.category===c))})).filter((x)=>x.v);const maxV=Math.max(1,...cat.map((x)=>x.v));
+function costBrief(s,e){const mx=liveExp().filter((x)=>x.date>=s&&x.date<e&&entryType(x)==='out'),pend=liveExp().filter((x)=>entryType(x)==='out'&&!x.settled);
+ return `<section class="sec"><div class="sec-h"><h3>财务与成本</h3><span>完整报表在「账本」</span></div><button type="button" class="row mrow" data-tab-go="book"><div class="main"><div class="t">本月支出 ${yuan(expSum(mx))} 元</div><div class="m">${mx.length} 笔 · ${pend.length?'待核销 '+pend.length+' 笔 '+yuan(expSum(pend))+' 元':'往来已结清'}</div></div><span class="chev">›</span></button></section>`;}
+function settleHTML(s,e){const pendAll=liveExp().filter((x)=>entryType(x)==='out'&&!x.settled).sort((a,b)=>a.date.localeCompare(b.date));
+ const mPend=pendAll.filter((x)=>x.date>=s&&x.date<e),settledRecent=liveExp().filter((x)=>entryType(x)==='out'&&x.settled).sort((a,b)=>(b.settledAt||'').localeCompare(a.settledAt||'')).slice(0,12);
  const who=[...new Set(pendAll.map((x)=>x.payer||'自己'))].map((w)=>({w,v:expSum(pendAll.filter((x)=>(x.payer||'自己')===w))}));
- const ask=(list,lbl)=>`<div class="confirm block">将把 <b>${list.length} 笔、${yuan(expSum(list))} 元</b>标记为已结算，日期范围 <b>${rangeTxt(list)}</b>（${lbl}）。<div class="actions"><button type="button" class="sm danger" id="settleYes">确认结算</button><button type="button" class="sm" id="settleNo">取消</button></div></div>`;
- return `<section class="sec"><div class="sec-h"><h3>垫付总计</h3><span>来自「当日支出」</span></div>
- <div class="grid3"><div class="kpi"><div class="l">本月花费</div><div class="v">${yuan(expSum(mx))}<small>元</small></div><div class="s">${mx.length} 笔</div></div>
- <div class="kpi"><div class="l">本月待结算</div><div class="v">${yuan(expSum(mPend))}<small>元</small></div><div class="s">${mPend.length} 笔未结</div></div>
- <div class="kpi"><div class="l">全部待结算</div><div class="v">${yuan(expSum(pendAll))}<small>元</small></div><div class="s">${who.length?who.map((x)=>esc(x.w)+' '+yuan(x.v)).join(' · '):'全部已结清'}</div></div></div>
- ${cat.length?`<div class="card bars" style="margin-top:10px">${cat.map((x)=>`<div class="bar"><span>${esc(x.c)}</span><span class="track"><i style="width:${(x.v/maxV*100).toFixed(1)}%"></i></span><span>${yuan(x.v)} 元</span></div>`).join('')}</div>`:'<div class="empty" style="margin-top:10px">这个月还没有记花费</div>'}
- ${pendAll.length?`<div class="sec-h" style="margin-top:16px"><h3>待结算明细</h3><span>${pendAll.length} 笔 · ${rangeTxt(pendAll)}</span></div><div class="list">${pendAll.map((x)=>`<div class="row exp"><div class="main"><div class="t">${esc(x.purpose)}<small>${cn(x.date)} · ${esc(x.category)}</small></div><div class="m">${esc(x.payer||'自己')}垫付 · ${esc(x.pay)}${x.note?' · '+esc(x.note):''}</div></div><div class="r"><b class="amt">${yuan(cents(x.amount))}</b><button type="button" class="sm" data-settle="${esc(x.id)}">结算</button></div></div>`).join('')}</div>
- ${settleAsk==='month'?ask(mPend,mlabel(statMonth)):settleAsk==='all'?ask(pendAll,'全部月份'):`<div class="actions">${mPend.length?`<button type="button" class="sm" data-settleask="month">结算${mlabel(statMonth)}待结（${mPend.length} 笔）</button>`:''}${pendAll.length>mPend.length?`<button type="button" class="sm" data-settleask="all">结算全部待结（${pendAll.length} 笔）</button>`:''}</div>`}`:''}
- ${settledRecent.length?`<details style="margin-top:12px"><summary>最近已结算（可撤销）</summary><div class="list">${settledRecent.map((x)=>`<div class="row exp settled"><div class="main"><div class="t">${esc(x.purpose)}<small>${cn(x.date)}</small></div><div class="m">结算于 ${cn((x.settledAt||'').slice(0,10))}</div></div><div class="r"><b class="amt">${yuan(cents(x.amount))}</b><button type="button" class="sm" data-unsettle="${esc(x.id)}">撤销结算</button></div></div>`).join('')}</div></details>`:''}
+ const ask=(list,lbl)=>`<div class="confirm block">将把 <b>${list.length} 笔、${yuan(expSum(list))} 元</b>标记为已核销结算，日期范围 <b>${rangeTxt(list)}</b>（${lbl}）。<div class="actions"><button type="button" class="sm danger" id="settleYes">确认核销</button><button type="button" class="sm" id="settleNo">取消</button></div></div>`;
+ return `<section class="sec" style="margin-top:0"><div class="sec-h"><h3>垫付往来核销</h3><span>${pendAll.length?'待结算 '+pendAll.length+' 笔 · '+yuan(expSum(pendAll))+' 元':'全部已结清'}</span></div>
+ ${who.length?`<div class="whos">${who.map((x)=>`<span><b>${esc(x.w)}</b>待结 ${yuan(x.v)} 元</span>`).join('')}</div>`:''}
+ ${pendAll.length?`<div class="list">${pendAll.map((x)=>`<div class="row exp"><div class="main"><div class="t">${x.vno?`<span class="vno">${esc(x.vno)}</span>`:''}${esc(x.purpose)}<small>${cn(x.date)} · ${esc(x.category)}</small></div><div class="m">${esc(x.payer||'自己')}垫付 · ${esc(normPay(x.pay))}${x.supplier?' · '+esc(x.supplier):''}${x.note?' · '+esc(x.note):''}</div></div><div class="r"><b class="amt">${yuan(cents(x.amount))}</b><button type="button" class="sm" data-settle="${esc(x.id)}">核销</button></div></div>`).join('')}</div>
+ ${settleAsk==='month'?ask(mPend,mlabel(statMonth)):settleAsk==='all'?ask(pendAll,'全部月份'):`<div class="actions">${mPend.length?`<button type="button" class="sm" data-settleask="month">核销${mlabel(statMonth)}待结（${mPend.length} 笔）</button>`:''}${pendAll.length>mPend.length?`<button type="button" class="sm" data-settleask="all">核销全部待结（${pendAll.length} 笔）</button>`:''}</div>`}`:'<div class="empty">目前没有待核销的垫付记录</div>'}
+ ${settledRecent.length?`<details style="margin-top:12px"><summary>最近已核销（可撤销）</summary><div class="list">${settledRecent.map((x)=>`<div class="row exp settled"><div class="main"><div class="t">${esc(x.purpose)}<small>${cn(x.date)}</small></div><div class="m">核销于 ${cn((x.settledAt||'').slice(0,10))} · ${esc(x.payer||'自己')}</div></div><div class="r"><b class="amt">${yuan(cents(x.amount))}</b><button type="button" class="sm" data-unsettle="${esc(x.id)}">撤销</button></div></div>`).join('')}</div></details>`:''}
  </section>`;}
 
 /* ---------- 备份与导出 ---------- */
@@ -330,7 +536,7 @@ function bindView(){const v=$('view');
  v.querySelectorAll('[data-open]').forEach((el)=>{el.addEventListener('click',()=>openDetail(el.dataset.open));el.addEventListener('keydown',(e)=>{if(e.key==='Enter')openDetail(el.dataset.open);});});
  v.querySelectorAll('[data-new]').forEach((el)=>el.addEventListener('click',()=>openEditor(null)));
  v.querySelectorAll('[data-tab-go]').forEach((el)=>el.addEventListener('click',()=>setTab(el.dataset.tabGo)));
- v.querySelectorAll('[data-day]').forEach((el)=>el.addEventListener('click',()=>{const n=Number(el.dataset.day);dayView=n===0?today():addDays(dayView,n);expOpen=false;expEdit='';render();}));
+ v.querySelectorAll('[data-day]').forEach((el)=>el.addEventListener('click',()=>{const n=Number(el.dataset.day);dayView=n===0?today():addDays(dayView,n);render();}));
  const dp=$('dayPick');if(dp)dp.addEventListener('change',()=>{if(dateOK(dp.value)){dayView=dp.value;render();}});
  v.querySelectorAll('[data-cal]').forEach((el)=>el.addEventListener('click',()=>{const n=Number(el.dataset.cal);calStart=n===0?today():addDays(calStart,n);render();}));
  const cp=$('calPick');if(cp)cp.addEventListener('change',()=>{if(dateOK(cp.value)){calStart=cp.value;render();}});
@@ -369,21 +575,17 @@ function bindView(){const v=$('view');
  v.querySelectorAll('[data-arrive]').forEach((el)=>el.addEventListener('click',()=>{const ids=el.dataset.arrive;const t=nowISO();let name='';
   if(tx(()=>{const g=byIds(ids);if(!g.length)return false;name=g[0].name;g.forEach((r)=>{if(r.status==='已预订'){r.status='已入住';r.arrivedAt=t;r.updatedAt=t;}});})){const gg=byIds(ids);if(gg[0])expanded.delete(okey(gg[0]));toast(name+' 已到店');}render();}));
  v.querySelectorAll('[data-unarrive]').forEach((el)=>el.addEventListener('click',()=>{const ids=el.dataset.unarrive;if(tx(()=>{byIds(ids).forEach((r)=>{if(r.status==='已入住'){r.status='已预订';r.arrivedAt='';r.updatedAt=nowISO();}});}))toast('已撤销到店');render();}));
- // 花费
- if($('expNew'))$('expNew').onclick=()=>{expOpen=true;expEdit='';expDel='';render();const a=$('xAmt');if(a)a.focus();};
- v.querySelectorAll('[data-expedit]').forEach((el)=>el.addEventListener('click',()=>{expEdit=el.dataset.expedit;expOpen=false;expDel='';render();const f=$('expForm');if(f)f.scrollIntoView({block:'center'});}));
- const xf=$('expForm');if(xf){
-  $('xCancel').onclick=()=>{expOpen=false;expEdit='';expDel='';render();};
-  if($('xDel'))$('xDel').onclick=()=>{expDel=expEdit;render();};
-  if($('xDelNo'))$('xDelNo').onclick=()=>{expDel='';render();};
-  if($('xDelYes'))$('xDelYes').onclick=()=>{const id=expEdit;if(txExp(()=>{const x=exps.find((y)=>y.id===id);if(!x)return false;x.deleted=true;x.updatedAt=nowISO();}))toast('已删除');expEdit='';expDel='';render();};
-  xf.addEventListener('submit',(e)=>{e.preventDefault();let amt;try{amt=moneyIn($('xAmt').value.trim());}catch(err){toast('金额要填非负数字');return;}
-   const pur=$('xPur').value.trim();if(amt==null||amt<=0){toast('先填花费金额');$('xAmt').focus();return;}if(!pur){toast('写一下用途');$('xPur').focus();return;}
-   const t=nowISO(),fields={amount:amt,purpose:pur.slice(0,60),category:$('xCat').value,pay:$('xPay').value,payer:($('xWho').value.trim()||'自己').slice(0,20),room:$('xRoom').value,note:$('xNote').value.trim().slice(0,100)};
-   const id=expEdit;const st=$('xSettled')?$('xSettled').checked:null;
-   const ok=txExp(()=>{if(id){const x=exps.find((y)=>y.id===id);if(!x)return false;Object.assign(x,fields,{updatedAt:t});if(st!==null&&st!==!!x.settled){x.settled=st;x.settledAt=st?t:'';}}
-    else exps.push(Object.assign({id:newId(),date:dayView},fields,{settled:false,settledAt:'',deleted:false,createdAt:t,updatedAt:t}));});
-   if(!ok)return;toast(id?'已保存修改':'已记 '+yuan(Math.round(amt*100))+' 元');expOpen=false;expEdit='';render();});}
+  // 账本
+  v.querySelectorAll('[data-budget]').forEach((el)=>el.addEventListener('click',()=>openBudgetSheet(el.dataset.budget)));
+  v.querySelectorAll('[data-bsub]').forEach((el)=>el.addEventListener('click',()=>{bookSub=el.dataset.bsub;settleAsk='';render();}));
+  v.querySelectorAll('[data-expnew]').forEach((el)=>el.addEventListener('click',()=>openExp(null,el.dataset.expnew)));
+  v.querySelectorAll('[data-expedit]').forEach((el)=>el.addEventListener('click',()=>openExp(el.dataset.expedit)));
+  v.querySelectorAll('[data-bgrp]').forEach((el)=>el.addEventListener('click',()=>{bf.grp=el.dataset.bgrp;bf.type='out';bookSub='ledger';render();}));
+  v.querySelectorAll('[data-bacct]').forEach((el)=>el.addEventListener('click',()=>{bf.pay=el.dataset.bacct;bookSub='ledger';render();}));
+  const bq=$('bq');if(bq){bq.addEventListener('input',()=>{bf.q=bq.value;const pos=bq.selectionStart;render();const n=$('bq');n.focus();try{n.setSelectionRange(pos,pos);}catch(e){}});
+   [['btype','type'],['bgrp','grp'],['bpay','pay'],['bst','st']].forEach(([id,k])=>{if($(id))$(id).addEventListener('change',()=>{bf[k]=$(id).value;render();});});}
+  const bm=$('bookM');if(bm)bm.addEventListener('change',()=>{statMonth=bm.value;settleAsk='';render();});
+  if($('bookExp'))$('bookExp').onclick=()=>exportExp(statMonth);
  v.querySelectorAll('[data-settle]').forEach((el)=>el.addEventListener('click',()=>{const id=el.dataset.settle;if(txExp(()=>{const x=exps.find((y)=>y.id===id);if(!x)return false;x.settled=true;x.settledAt=x.updatedAt=nowISO();}))toast('已结算，可在「最近已结算」撤销');render();}));
  v.querySelectorAll('[data-unsettle]').forEach((el)=>el.addEventListener('click',()=>{const id=el.dataset.unsettle;if(txExp(()=>{const x=exps.find((y)=>y.id===id);if(!x)return false;x.settled=false;x.settledAt='';x.updatedAt=nowISO();}))toast('已撤销结算');render();}));
  v.querySelectorAll('[data-settleask]').forEach((el)=>el.addEventListener('click',()=>{settleAsk=el.dataset.settleask;render();}));
@@ -604,14 +806,20 @@ async function exportCSV(m,mode){let rows=live();let s='',e='';
   return base.map(csvCell).join(',');}));
  const name='住客簿_'+(m?m+(mode==='stay'?'_住宿日':'_入住月份'):'全部')+'.csv';
  const res=await shareOrDownload(name,'﻿'+lines.join('\n'),'text/csv');if(res!=='cancel')toast('已导出 '+rows.length+' 间房记录');}
-async function exportExp(m){const [s,e]=monthRange(m);const rows=liveExp().filter((x)=>x.date>=s&&x.date<e).sort((a,b)=>a.date.localeCompare(b.date));
- if(!rows.length){toast('这个月没有花费记录');return;}
- const H=['日期','金额','用途','类别','付款方式','垫付人','关联房间','备注','结算状态','结算日期'];
- const lines=[H.join(',')].concat(rows.map((x)=>[x.date,x.amount,x.purpose,x.category,x.pay,x.payer,x.room,x.note,x.settled?'已结算':'待结算',(x.settledAt||'').slice(0,10)].map(csvCell).join(',')));
- lines.push(['合计',expSum(rows)/100].map(csvCell).join(','));
- const res=await shareOrDownload('住客簿_花费_'+m+'.csv','﻿'+lines.join('\n'),'text/csv');if(res!=='cancel')toast('已导出 '+rows.length+' 笔');}
+async function exportExp(m){const [s,e]=monthRange(m);const rows=liveExp().filter((x)=>x.date>=s&&x.date<e).sort((a,b)=>a.date.localeCompare(b.date)||(a.createdAt||'').localeCompare(b.createdAt||''));
+  if(!rows.length){toast('这个月没有日记账记录');return;}
+  const vmap=monthVnoMap(m);
+  const H=['流水号','日期','收支方向','科目编码','一级科目','二级科目','成本性质','摘要','往来单位/供应商','数量','单位','单价','金额','资金账户','经办/垫付人','票据类型','发票号/税额','核算房间','备注','核销状态','核销日期'];
+  const lines=[H.join(',')].concat(rows.map((x)=>{const tp=entryType(x),ac=acctOf(x.category,tp);
+   return [vmap.get(x.id)||x.vno||'',x.date,tp==='in'?'收入':'支出',ac.subCode,ac.group,x.category,costTypeOf(x),x.purpose,x.supplier,x.qty,x.unit,x.price,x.amount,normPay(x.pay),x.payer,normBill(x.bill),x.invNo||'',x.room,x.note,tp==='in'?'已入账':(x.settled?'已核销':'待核销'),(x.settledAt||'').slice(0,10)].map(csvCell).join(',');}));
+  const outL=rows.filter((x)=>entryType(x)==='out'), inL=rows.filter((x)=>entryType(x)==='in');
+  const mn=monthNights(s,e), varC=expSum(outL.filter((x)=>costTypeOf(x)==='变动')), fixC=expSum(outL.filter((x)=>costTypeOf(x)==='固定')), passC=expSum(outL.filter((x)=>costTypeOf(x)==='往来'));
+  const rev=mn.alloc+expSum(inL);
+  lines.push('');lines.push(['月度简易损益汇总','','','','','','','','','','','','金额（元）'].map(csvCell).join(','));
+  [['住宿房费（分摊）',mn.alloc],['其他业务收入',expSum(inL)],['营业收入合计',rev],['营业变动成本',varC],['经营毛利',rev-varC],['固定与管理费用',fixC],['本月经营利润',rev-varC-fixC],['往来代付（不计入损益）',passC]].forEach(([k,v])=>{lines.push([k,'','','','','','','','','','','',v/100].map(csvCell).join(','));});
+  const res=await shareOrDownload('住客簿_日记账_'+m+'.csv','\ufeff'+lines.join('\n'),'text/csv');if(res!=='cancel')toast('已导出 '+rows.length+' 笔日记账');}
 async function backup(){const now=new Date();const name='住客簿备份_'+today()+'.json';
- const res=await shareOrDownload(name,JSON.stringify({app:'haichun-zkb',version:4,exportedAt:now.toISOString(),records:all,expenses:exps},null,1),'application/json');
+ const res=await shareOrDownload(name,JSON.stringify({app:'haichun-zkb',version:5,exportedAt:now.toISOString(),records:all,expenses:exps,budgets},null,1),'application/json');
  if(res!=='cancel'){try{localStorage.setItem(BKEY,now.toISOString());}catch(e){}toast('备份已生成，存到微信或网盘');render();}}
 function validRec(x){return x&&typeof x.id==='string'&&x.id&&dateOK(x.checkin)&&dateOK(x.checkout)&&x.checkout>x.checkin&&ROOM_NAMES.includes(x.room)&&STATUSES.includes(x.status||'已预订');}
 async function restore(e){const f=e.target.files&&e.target.files[0];e.target.value='';if(!f)return;if(f.size>5*1024*1024){toast('备份不能超过 5MB');return;}
@@ -626,13 +834,14 @@ async function restore(e){const f=e.target.files&&e.target.files[0];e.target.val
    if(c){clash++;if(clashes.length<3)clashes.push(rec.name+'·'+rec.room+' '+cn(rec.checkin));return;}
    if(i>=0){pool[i]=rec;upd++;}else{pool.push(rec);add++;}});
   if(Array.isArray(d.expenses))d.expenses.forEach((x)=>{if(!x||!x.id||!dateOK(x.date)||!(Number(x.amount)>=0))return;const i=exps.findIndex((y)=>y.id===x.id);if(i>=0){if((x.updatedAt||'')>(exps[i].updatedAt||''))exps[i]=x;}else{exps.push(x);xa++;}});
+  if(d.budgets&&typeof d.budgets==='object'&&!Array.isArray(d.budgets)){Object.assign(budgets,d.budgets);persistBudgets();}
   all=pool;},{exp:true});
  if(!ok)return;render();
  toast('导入完成：新增 '+add+' 条，更新 '+upd+' 条'+(skip?'，较旧跳过 '+skip:'')+(bad?'，格式不对 '+bad:'')+(clash?'，房间冲突未导入 '+clash+'（'+clashes.join('、')+'）':'')+(xa?'，花费 '+xa+' 笔':''));}
 
 /* ---------- 启动 ---------- */
-all=load();exps=loadExp();
-const h0=(location.hash||'').slice(1);if(['today','ledger','calendar','stats','backup','more'].includes(h0))tab=h0;
+all=load();exps=loadExp();budgets=loadBudgets();
+const h0=(location.hash||'').slice(1);if(['today','ledger','calendar','book','stats','backup','more'].includes(h0))tab=h0;
 setTab(tab);
 function updateChip(){const c=$('offlineChip');c.textContent=navigator.onLine?'仅存本机':'离线 · 仅存本机';c.className='chip'+(navigator.onLine?'':' warn');}
 window.addEventListener('online',updateChip);window.addEventListener('offline',updateChip);updateChip();
